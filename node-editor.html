@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wimp Node Editor</title>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link href="node-editor.css" rel="stylesheet" />
+</head>
+<body>
+
+<header class="app-header">
+  <h1>Wimp Node Editor</h1>
+  <div class="prop-meta-row">
+    <label>Property name <input type="text" id="propName" placeholder="e.g. The Wimp Suites" /></label>
+    <label>Code name <input type="text" id="propCodeName" placeholder="e.g. TWS" style="width:80px" /></label>
+    <label>ID <input type="number" id="propId" placeholder="1" min="1" style="width:60px" /></label>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-group">
+    <span class="toolbar-label">Mode</span>
+    <div class="btn-group" id="modeGroup">
+      <button class="btn-mode active" data-mode="add">＋ Add</button>
+      <button class="btn-mode" data-mode="connect">⟷ Connect</button>
+      <button class="btn-mode" data-mode="select">↖ Select</button>
+    </div>
+  </div>
+
+  <div class="toolbar-group" id="addToolbar">
+    <span class="toolbar-label">Type</span>
+    <select id="nodeType">
+      <option value="junction">Junction</option>
+      <option value="unit">Unit</option>
+      <option value="amenity">Amenity</option>
+      <option value="elevator">Elevator</option>
+      <option value="stairs">Stairs</option>
+      <option value="escalator">Escalator</option>
+      <option value="door">Door</option>
+      <option value="entrance">Entrance</option>
+      <option value="checkpoint">Checkpoint</option>
+      <option value="stop">Stop</option>
+    </select>
+  </div>
+
+  <div class="toolbar-group">
+    <span class="toolbar-label">Floor BG</span>
+    <input type="file" id="floorBg" accept="image/*" />
+  </div>
+
+  <div class="toolbar-group toolbar-right">
+    <label class="btn btn-file">Import JSON<input type="file" id="importJson" accept=".json" /></label>
+    <button id="exportJson" class="btn btn-primary">Export JSON 🚀</button>
+  </div>
+</div>
+
+<div class="mode-hint" id="modeHint"></div>
+
+<div class="floor-bar">
+  <div id="floorTabs" class="floor-tabs"></div>
+  <button id="addFloor" class="btn btn-sm">+ Floor</button>
+  <button id="dupFloor" class="btn btn-sm">Duplicate Floor</button>
+  <div class="floor-edit-group">
+    <label>Name <input type="text" id="floorEditName" placeholder="Ground Floor" /></label>
+    <label>Number <input type="text" id="floorEditNumber" placeholder="1" style="width:52px" /></label>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="map-wrap">
+    <div id="map"></div>
+  </div>
+
+  <aside class="side-panel">
+    <div class="panel-section props-section">
+      <h2 class="panel-title">Properties</h2>
+      <div id="propsPanel"><p class="empty-msg">Select a node to edit.</p></div>
+    </div>
+    <div class="panel-section nodes-section">
+      <h2 class="panel-title">Nodes <span class="node-count" id="nodeCount"></span></h2>
+      <div id="nodeList"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="toast"></div>
+
+<script src="node-editor.js"></script>
+</body>
+</html>
