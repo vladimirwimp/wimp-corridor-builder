@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WIMP Corridor Builder</title>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { display: flex; height: 100vh; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; background: #f1f5f9; color: #1e293b; overflow: hidden; }
+
+    /* ── Left sidebar ── */
+    #sidebar { width: 210px; display: flex; flex-direction: column; background: #0f172a; color: #e2e8f0; flex-shrink: 0; overflow-y: auto; }
+    #sidebar-header { padding: 14px; border-bottom: 1px solid #1e293b; }
+    #sidebar-header h1 { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.03em; }
+    #sidebar-header p { font-size: 11px; color: #64748b; margin-top: 3px; }
+
+    .section { padding: 10px 12px; border-bottom: 1px solid #1e293b; }
+    .section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #475569; margin-bottom: 8px; }
+
+    .tool-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: none; border-radius: 6px; background: transparent; color: #94a3b8; cursor: pointer; font-size: 12px; text-align: left; transition: background 0.1s, color 0.1s; }
+    .tool-btn:hover { background: #1e293b; color: #e2e8f0; }
+    .tool-btn.active { background: #2979FF; color: #fff; }
+    .tool-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    #shaftOptions { margin-top: 3px; padding-left: 4px; display: none; }
+    #shaftOptions.visible { display: block; }
+    .shaft-opt { padding: 5px 10px; border-radius: 5px; cursor: pointer; color: #64748b; font-size: 12px; }
+    .shaft-opt:hover { background: #1e293b; color: #e2e8f0; }
+    .shaft-opt.active { color: #fff; font-weight: 600; }
+
+    .opt-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 11px; color: #64748b; }
+    .opt-row label { flex: 1; }
+    .opt-row input[type=number] { width: 56px; padding: 3px 6px; background: #1e293b; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 11px; }
+
+    #floorList { display: flex; flex-direction: column; gap: 3px; }
+    .floor-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; cursor: pointer; color: #64748b; font-size: 12px; }
+    .floor-tab:hover { background: #1e293b; color: #e2e8f0; }
+    .floor-tab.active { background: #1a6fe0; color: #fff; }
+    .floor-tab-label { flex: 1; }
+    .floor-tab-del { background: none; border: none; color: #475569; cursor: pointer; padding: 0 2px; font-size: 11px; }
+    .floor-tab-del:hover { color: #ef4444; }
+    .floor-actions { display: flex; gap: 6px; margin-top: 7px; }
+
+    .btn-sm { padding: 4px 10px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #1e293b; color: #94a3b8; }
+    .btn-sm:hover { background: #334155; color: #e2e8f0; }
+
+    .field-row { margin-bottom: 7px; }
+    .field-row label { display: block; font-size: 10px; color: #475569; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .field-row input { width: 100%; padding: 4px 8px; background: #1e293b; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 12px; }
+
+    .action-btn { display: block; width: 100%; padding: 7px; font-size: 12px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 5px; font-weight: 500; text-align: center; text-decoration: none; }
+    .action-btn.primary { background: #2979FF; color: #fff; }
+    .action-btn.primary:hover { background: #1a6fe0; }
+    .action-btn.secondary { background: #1e293b; color: #94a3b8; }
+    .action-btn.secondary:hover { background: #334155; color: #e2e8f0; }
+
+    /* ── Map ── */
+    #map-wrap { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    #hint {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.88); color: #e2e8f0; padding: 6px 16px;
+      border-radius: 20px; font-size: 12px; pointer-events: none;
+      white-space: nowrap; backdrop-filter: blur(6px);
+    }
+
+    #toast {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%) translateY(-6px);
+      background: #0f172a; color: #fff; padding: 6px 18px;
+      border-radius: 20px; font-size: 12px; opacity: 0; pointer-events: none;
+      transition: opacity 0.18s, transform 0.18s;
+    }
+    #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Right panel ── */
+    #right-panel { width: 210px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+    #right-panel-header { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    #props-content { padding: 12px; flex: 1; }
+    .prop-empty { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px; line-height: 1.6; }
+
+    .type-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .prop-field { margin-bottom: 9px; }
+    .prop-field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-bottom: 3px; }
+    .prop-field input { width: 100%; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; color: #1e293b; }
+    .prop-field input[readonly] { background: #f8fafc; color: #94a3b8; }
+    .prop-actions { display: flex; gap: 6px; margin-top: 12px; }
+    .prop-btn { flex: 1; padding: 6px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .prop-btn.save { background: #2979FF; color: #fff; }
+    .prop-btn.save:hover { background: #1a6fe0; }
+    .prop-btn.danger { background: #fee2e2; color: #dc2626; }
+    .prop-btn.danger:hover { background: #fecaca; }
+
+    /* unit-box color swatch in props */
+    .unit-box-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+
+    .conn-list { list-style: none; margin-top: 4px; }
+    .conn-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; color: #475569; }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Left sidebar ── -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Corridor Builder</h1>
+    <p>WIMP map authoring</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Tools</div>
+    <button class="tool-btn" data-tool="corridor">
+      <span class="tool-dot" style="background:#818cf8"></span> Draw Corridor
+    </button>
+    <button class="tool-btn" data-tool="unit">
+      <span class="tool-dot" style="background:#3b82f6"></span> Add Unit
+    </button>
+    <button class="tool-btn" data-tool="amenity">
+      <span class="tool-dot" style="background:#06b6d4"></span> Add Amenity
+    </button>
+    <button class="tool-btn" data-tool="shaft">
+      <span class="tool-dot" style="background:#22c55e"></span> Add Shaft
+    </button>
+    <div id="shaftOptions">
+      <div class="shaft-opt active" data-shaft="elevator">🛗 Elevator</div>
+      <div class="shaft-opt" data-shaft="stairs">🪜 Stairs</div>
+      <div class="shaft-opt" data-shaft="escalator">↗ Escalator</div>
+    </div>
+    <button class="tool-btn" data-tool="branch">
+      <span class="tool-dot" style="background:#f59e0b"></span> Branch Point
+    </button>
+    <button class="tool-btn" data-tool="select">
+      <span class="tool-dot" style="background:#475569"></span> Select / Edit
+    </button>
+  </div>
+
+  <div class="section" id="corridor-options">
+    <div class="section-title">Options</div>
+    <div class="opt-row">
+      <label>Junction spacing</label>
+      <input type="number" id="junctionSpacing" value="1.0" step="0.25" min="0.25" max="5">
+    </div>
+    <div class="opt-row">
+      <label>Corridor width</label>
+      <input type="number" id="corridorWidth" value="0.6" step="0.1" min="0.1" max="3">
+    </div>
+    <div class="opt-row">
+      <label>Unit offset</label>
+      <input type="number" id="unitOffset" value="0.9" step="0.1" min="0.2" max="3">
+    </div>
+    <div class="opt-row">
+      <label>Unit width</label>
+      <input type="number" id="unitWidth" value="1.0" step="0.1" min="0.2" max="5">
+    </div>
+    <div class="opt-row">
+      <label>Unit shape</label>
+      <select id="unitShape" style="width:80px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+        <option value="rectangle">Square</option>
+        <option value="triangle">Triangle</option>
+      </select>
+    </div>
+    <div class="opt-row" style="margin-top:4px;padding-top:8px;border-top:1px solid #1e293b">
+      <label>Auto-number from</label>
+      <input type="text" id="unitStartNum" value="" placeholder="e.g. 401"
+        style="width:56px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+    </div>
+    <div style="font-size:10px;color:#475569;margin-top:2px;padding:0 2px">
+      Leave blank to name manually
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Floors</div>
+    <div id="floorList"></div>
+    <div class="floor-actions">
+      <button class="btn-sm" id="addFloor">+ Add</button>
+      <button class="btn-sm" id="dupFloor">Duplicate</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Property</div>
+    <div class="field-row">
+      <label>Name</label>
+      <input type="text" id="propName" placeholder="Town Westshore">
+    </div>
+    <div class="field-row">
+      <label>Code name</label>
+      <input type="text" id="propCodeName" placeholder="town-westshore">
+    </div>
+    <div class="field-row">
+      <label>ID</label>
+      <input type="number" id="propId" value="1">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Floor Plan</div>
+    <div class="opt-row" style="margin-bottom:6px">
+      <label>PDF page</label>
+      <input type="number" id="fpPage" value="1" step="1" min="1"
+        style="width:56px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+    </div>
+    <label class="action-btn secondary" style="cursor:pointer;margin-bottom:5px" id="floorplanUploadLabel">
+      📄 Import PDF / Image
+      <input type="file" id="floorplanFile" accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+    </label>
+    <div id="floorplanControls" style="display:none">
+      <div class="opt-row">
+        <label>Opacity</label>
+        <input type="range" id="fpOpacity" min="0" max="1" step="0.05" value="0.35"
+          style="width:80px;accent-color:#2979FF">
+      </div>
+      <div class="opt-row">
+        <label>Scale</label>
+        <input type="number" id="fpScale" value="100" step="5" min="1" max="10000"
+          style="width:56px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+      </div>
+      <div class="opt-row">
+        <label>Center X</label>
+        <input type="number" id="fpCX" value="0" step="0.5"
+          style="width:56px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+      </div>
+      <div class="opt-row" style="margin-bottom:6px">
+        <label>Center Y</label>
+        <input type="number" id="fpCY" value="0" step="0.5"
+          style="width:56px;padding:3px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;">
+      </div>
+      <button class="action-btn secondary" id="fpRemove" style="margin-bottom:0;font-size:11px">Remove</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="action-btn primary" id="previewBtn">▶ App Preview</button>
+    <button class="action-btn primary" id="exportJson" style="background:#1e293b;border:1px solid #334155">Export JSON</button>
+    <label class="action-btn secondary" style="cursor:pointer">
+      Import JSON
+      <input type="file" id="importJson" accept=".json" style="display:none">
+    </label>
+    <a href="node-editor.html" class="action-btn secondary">Open Node Editor →</a>
+  </div>
+</div>
+
+<!-- ── Map ── -->
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="hint">Select a tool to begin</div>
+  <div id="toast"></div>
+</div>
+
+<!-- ── Right panel ── -->
+<div id="right-panel">
+  <div id="right-panel-header">Properties</div>
+  <div id="props-content">
+    <p class="prop-empty">Select a node or<br>corridor to edit.</p>
+  </div>
+</div>
+
+<script>
+/* ===== Constants ===== */
+
+const WORLD_MIN = [-50, -50];
+const WORLD_MAX = [50, 50];
+const SNAP_DIST = 0.6;
+
+const TYPE_COLORS = {
+  junction:  '#6b7280',
+  stop:      '#94a3b8',
+  unit:      '#3b82f6',
+  amenity:   '#06b6d4',
+  elevator:  '#22c55e',
+  stairs:    '#f97316',
+  escalator: '#84cc16',
+};
+
+const TYPE_RADIUS = {
+  junction:  10,
+  stop:      5,
+  unit:      8,
+  amenity:   8,
+  elevator:  8,
+  stairs:    8,
+  escalator: 8,
+};
+
+const TYPE_ID_PREFIX = {
+  junction:  'N-Ju-',
+  stop:      'S-',
+  unit:      'U-',
+  amenity:   'A-',
+  elevator:  'N-Ev-',
+  stairs:    'N-St-',
+  escalator: 'N-Es-',
+};
+
+const CROSS_FLOOR = new Set(['elevator', 'stairs', 'escalator']);
+
+/* ===== State ===== */
+
+let floors = [{ number: 1, name: 'Ground Floor', nodes: [], corridors: [] }];
+let activeFloorIndex = 0;
+let tool = 'corridor';
+let shaftType = 'elevator';
+let corridorStart = null;     // [x, y] after first click in corridor mode
+let selectedNodeId = null;
+let selectedNodeIds = new Set(); // multi-select
+let selectedCorridorId = null;
+let corridorCounter = 0;
+let draggingNodeId = null;
+
+const usedIds = new Set();
+const typeCounters = {};
+
+/* ===== Undo history ===== */
+
+const undoStack = [];
+const UNDO_LIMIT = 50;
+
+function saveUndoSnapshot() {
+  const snapshot = {
+    floors: JSON.parse(JSON.stringify(floors)),
+    activeFloorIndex,
+    corridorCounter,
+    usedIdsArr: [...usedIds],
+    typeCountersSnap: { ...typeCounters },
+  };
+  undoStack.push(snapshot);
+  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+}
+
+function undo() {
+  if (!undoStack.length) { showToast('Nothing to undo.'); return; }
+  const snap = undoStack.pop();
+  floors = snap.floors;
+  activeFloorIndex = snap.activeFloorIndex;
+  corridorCounter = snap.corridorCounter;
+  usedIds.clear();
+  snap.usedIdsArr.forEach(id => usedIds.add(id));
+  Object.keys(typeCounters).forEach(k => delete typeCounters[k]);
+  Object.assign(typeCounters, snap.typeCountersSnap);
+  selectedNodeId = null;
+  selectedCorridorId = null;
+  corridorStart = null;
+  map.getSource('preview')?.setData(emptyFC());
+  map.getSource('snap')?.setData(emptyFC());
+  renderFloors();
+  refreshAll();
+  renderProps();
+  showToast('Undone.');
+}
+
+/* ===== Autosave ===== */
+
+const AUTOSAVE_KEY = 'wimp_cb_autosave';
+
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+      floors,
+      corridorCounter,
+      usedIdsArr: [...usedIds],
+      typeCountersSnap: { ...typeCounters },
+      propName:     document.getElementById('propName')?.value     || '',
+      propCodeName: document.getElementById('propCodeName')?.value || '',
+      propId:       document.getElementById('propId')?.value       || '1',
+      unitStartNum: document.getElementById('unitStartNum')?.value || '',
+    }));
+  } catch(e) {}
+}
+
+function restoreFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const snap = JSON.parse(raw);
+    if (!Array.isArray(snap.floors) || !snap.floors.length) return;
+
+    floors = snap.floors;
+    corridorCounter = snap.corridorCounter || 0;
+    usedIds.clear();
+    (snap.usedIdsArr || []).forEach(id => usedIds.add(id));
+    Object.keys(typeCounters).forEach(k => delete typeCounters[k]);
+    Object.assign(typeCounters, snap.typeCountersSnap || {});
+
+    if (document.getElementById('propName'))     document.getElementById('propName').value     = snap.propName     || '';
+    if (document.getElementById('propCodeName')) document.getElementById('propCodeName').value = snap.propCodeName || '';
+    if (document.getElementById('propId'))       document.getElementById('propId').value       = snap.propId       || '1';
+    if (document.getElementById('unitStartNum')) document.getElementById('unitStartNum').value = snap.unitStartNum || '';
+
+    renderFloors();
+    refreshAll();
+    renderProps();
+    showToast('Map restored from autosave.');
+  } catch(e) { console.warn('Autosave restore failed:', e); }
+}
+
+/* ===== Accessors ===== */
+
+function activeFloor() { return floors[activeFloorIndex]; }
+function getNode(id) { return activeFloor().nodes.find(n => n.id === id) || null; }
+function getCorridor(id) { return (activeFloor().corridors || []).find(c => c.id === id) || null; }
+
+/* ===== Math helpers ===== */
+
+function round4(v) { return parseFloat(v.toFixed(4)); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function dist2(ax, ay, bx, by) { return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2); }
+
+function closestOnSegWithT(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return [ax, ay, 0];
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return [ax + t * dx, ay + t * dy, t];
+}
+
+function findSnapJunction(x, y) {
+  let best = null, bestD = Infinity;
+  for (const n of activeFloor().nodes) {
+    if (n.type !== 'junction') continue;
+    const d = dist2(x, y, n.coordinates[0], n.coordinates[1]);
+    if (d < SNAP_DIST && d < bestD) { best = n; bestD = d; }
+  }
+  return best;
+}
+
+/* ===== ID generation ===== */
+
+function generateId(type) {
+  const floorNum = activeFloor().number;
+  let candidate;
+  do {
+    typeCounters[type] = (typeCounters[type] || 0) + 1;
+    const prefix = TYPE_ID_PREFIX[type];
+    candidate = CROSS_FLOOR.has(type)
+      ? `${prefix}${typeCounters[type]}-f${floorNum}`
+      : `${prefix}${typeCounters[type]}`;
+  } while (usedIds.has(candidate));
+  return candidate;
+}
+
+/* ===== Corridor drawing ===== */
+
+function commitCorridor(rawStart, rawEnd) {
+  saveUndoSnapshot();
+  const floor = activeFloor();
+  const spacing = parseFloat(document.getElementById('junctionSpacing').value) || 1.0;
+  const width   = parseFloat(document.getElementById('corridorWidth').value)   || 0.6;
+  document.getElementById('corridorWidth').value = width;
+
+  const snapS = findSnapJunction(rawStart[0], rawStart[1]);
+  const snapE = findSnapJunction(rawEnd[0], rawEnd[1]);
+  const start = snapS ? [...snapS.coordinates] : rawStart;
+  const end   = snapE ? [...snapE.coordinates] : rawEnd;
+
+  const dx = end[0] - start[0], dy = end[1] - start[1];
+  const len = dist2(start[0], start[1], end[0], end[1]);
+  if (len < 0.001) { showToast('Corridor too short.'); return; }
+
+  const count = Math.max(2, Math.round(len / spacing) + 1);
+  const junctionIds = [];
+
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const x = round4(start[0] + t * dx);
+    const y = round4(start[1] + t * dy);
+
+    if (i === 0 && snapS) {
+      junctionIds.push(snapS.id);
+      continue;
+    }
+    if (i === count - 1 && snapE) {
+      junctionIds.push(snapE.id);
+      continue;
+    }
+
+    const id = generateId('junction');
+    floor.nodes.push({ id, type: 'junction', coordinates: [x, y], connections: [] });
+    usedIds.add(id);
+    junctionIds.push(id);
+  }
+
+  // Chain junctions
+  for (let i = 0; i < junctionIds.length - 1; i++) {
+    const a = getNode(junctionIds[i]);
+    const b = getNode(junctionIds[i + 1]);
+    if (a && !a.connections.includes(junctionIds[i + 1])) a.connections.push(junctionIds[i + 1]);
+    if (b && !b.connections.includes(junctionIds[i]))     b.connections.push(junctionIds[i]);
+  }
+
+  const corridorId = generateCorridorId();
+  if (!floor.corridors) floor.corridors = [];
+  floor.corridors.push({ id: corridorId, start: [...start], end: [...end], junctionIds, width, label: '' });
+  usedIds.add(corridorId);
+
+  selectedCorridorId = corridorId;
+  selectedNodeId = null;
+  refreshAll();
+  renderProps();
+  showToast(`Corridor placed — ${junctionIds.length} junctions.`);
+}
+
+function generateCorridorId() {
+  let id;
+  do { id = `COR-${++corridorCounter}`; } while (usedIds.has(id));
+  return id;
+}
+
+/* ===== Unit adjacency snap ===== */
+
+// Returns world-unit distance along corridor from its start to point (px, py)
+function alongCorridorDist(px, py, cor) {
+  const dx = cor.end[0] - cor.start[0], dy = cor.end[1] - cor.start[1];
+  const len = dist2(cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+  if (len === 0) return 0;
+  return ((px - cor.start[0]) * (dx / len)) + ((py - cor.start[1]) * (dy / len));
+}
+
+// Always snap new unit flush against the nearest existing unit edge on the same corridor/side.
+// Returns the snapped along-corridor position, or null if no existing units on that side.
+function snapToAdjacentUnit(floor, cor, side, clickAlongDist, newUnitWidth) {
+  let bestDist = Infinity, bestAlong = null;
+  const halfNew = newUnitWidth / 2;
+
+  for (const n of floor.nodes) {
+    if (!['unit', 'amenity'].includes(n.type)) continue;
+    if (!n.boxParams) continue;
+    if (n.boxParams.side !== side) continue;
+    // Match by stored corridor ID (exact) — fall back to geometric check for older data
+    if (n.boxParams.corridorId) {
+      if (n.boxParams.corridorId !== cor.id) continue;
+    } else {
+      const corLen = dist2(cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+      const [,, t] = closestOnSegWithT(n.boxParams.stopX, n.boxParams.stopY,
+        cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+      const projX = cor.start[0] + t * (cor.end[0] - cor.start[0]);
+      const projY = cor.start[1] + t * (cor.end[1] - cor.start[1]);
+      if (dist2(n.boxParams.stopX, n.boxParams.stopY, projX, projY) > corLen * 0.01 + 0.05) continue;
+    }
+
+    // Derive center and half-width from actual box corners so resize is reflected
+    const p0 = n.box[0], p1 = n.box[1];
+    const boxCenterX = (p0[0] + p1[0]) / 2;
+    const boxCenterY = (p0[1] + p1[1]) / 2;
+    const existingAlong = alongCorridorDist(boxCenterX, boxCenterY, cor);
+    const existingHW = dist2(p0[0], p0[1], p1[0], p1[1]) / 2;
+
+    // Candidate: new unit's left edge flush with existing right edge
+    const cRight = existingAlong + existingHW + halfNew;
+    const dRight = Math.abs(clickAlongDist - cRight);
+    if (dRight < bestDist) { bestDist = dRight; bestAlong = cRight; }
+
+    // Candidate: new unit's right edge flush with existing left edge
+    const cLeft = existingAlong - existingHW - halfNew;
+    const dLeft = Math.abs(clickAlongDist - cLeft);
+    if (dLeft < bestDist) { bestDist = dLeft; bestAlong = cLeft; }
+  }
+  return bestAlong;
+}
+
+// Returns the actual half-width of a unit along the corridor,
+// derived from its box corners when available (survives corner-drag resizing).
+function actualHalfWidth(n) {
+  if (n.box?.length >= 2) {
+    // p0 and p1 are the near-wall corners — distance between them is the unit width
+    const [p0, p1] = n.box;
+    return dist2(p0[0], p0[1], p1[0], p1[1]) / 2;
+  }
+  return (n.boxWidth || 1.0) / 2;
+}
+
+/* ===== Unit / amenity placement ===== */
+
+function addUnitToSide(clickX, clickY, type) {
+  const floor = activeFloor();
+  const corridors = floor.corridors || [];
+  if (!corridors.length) { showToast('Draw a corridor first.'); return; }
+
+  const offset = parseFloat(document.getElementById('unitOffset').value) || 0.9;
+  const unitShape = document.getElementById('unitShape')?.value || 'rectangle';
+  const unitWidth = parseFloat(document.getElementById('unitWidth').value) || 1.0;
+
+  // Collect all corridors within reach, then prefer ones that already have units (tiling wins).
+  const candidates = [];
+  for (const cor of corridors) {
+    const [cx, cy] = closestOnSegWithT(clickX, clickY, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+    const d = dist2(clickX, clickY, cx, cy);
+    if (d <= offset * 2.5) candidates.push({ cor, d, cx, cy });
+  }
+  if (!candidates.length) { showToast('Click closer to a corridor.'); return; }
+
+  // Determine side relative to each corridor, then score by existing unit count on that side.
+  function sideFor(cor, cx, cy) {
+    const ddx = cor.end[0] - cor.start[0], ddy = cor.end[1] - cor.start[1];
+    const ll = dist2(cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+    const px = -ddy / ll, py = ddx / ll;
+    return ((clickX - cx) * px + (clickY - cy) * py) >= 0 ? 1 : -1;
+  }
+  function unitsOnCorSide(cor, side) {
+    let count = 0;
+    for (const n of floor.nodes) {
+      if (!['unit', 'amenity'].includes(n.type)) continue;
+      if (!n.boxParams || n.boxParams.side !== side) continue;
+      if (n.boxParams.corridorId ? n.boxParams.corridorId === cor.id : true) count++;
+    }
+    return count;
+  }
+
+  // Sort: corridors with existing units first, then by proximity.
+  candidates.sort((a, b) => {
+    const sideA = sideFor(a.cor, a.cx, a.cy);
+    const sideB = sideFor(b.cor, b.cx, b.cy);
+    const hasA = unitsOnCorSide(a.cor, sideA) > 0 ? 0 : 1;
+    const hasB = unitsOnCorSide(b.cor, sideB) > 0 ? 0 : 1;
+    if (hasA !== hasB) return hasA - hasB;
+    return a.d - b.d;
+  });
+
+  const { cor: bestCor, d: bestDist, cx: bestPx0, cy: bestPy0 } = candidates[0];
+  let bestPx = bestPx0, bestPy = bestPy0;
+
+  if (bestDist > offset * 2.5) { showToast('Click closer to a corridor.'); return; }
+
+  const cor = bestCor;
+  const dx = cor.end[0] - cor.start[0], dy = cor.end[1] - cor.start[1];
+  const len = dist2(cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+  const ux = dx / len, uy = dy / len;
+  const perpX = -uy, perpY = ux; // left-perpendicular unit vector
+
+  // Side: positive dot → left, negative → right
+  const side = ((clickX - bestPx) * perpX + (clickY - bestPy) * perpY) >= 0 ? 1 : -1;
+
+  const corridorHalfWidth = cor.width / 2;
+
+  // Try to snap stop position to an adjacent unit's edge
+  const clickAlong = alongCorridorDist(bestPx, bestPy, cor);
+  const snappedAlong = snapToAdjacentUnit(floor, cor, side, clickAlong, unitWidth);
+  if (snappedAlong !== null) {
+    const len2 = dist2(cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+    const ux2 = (cor.end[0] - cor.start[0]) / len2;
+    const uy2 = (cor.end[1] - cor.start[1]) / len2;
+    bestPx = round4(cor.start[0] + ux2 * snappedAlong);
+    bestPy = round4(cor.start[1] + uy2 * snappedAlong);
+  }
+
+  // Unit node sits at the center of the box depth-wise (corridor edge + depth/2)
+  const unitX = round4(bestPx + side * perpX * (corridorHalfWidth + offset / 2));
+  const unitY = round4(bestPy + side * perpY * (corridorHalfWidth + offset / 2));
+
+  // Nearest junction along corridor
+  let nearestJId = null, nearestJDist = Infinity;
+  for (const jid of cor.junctionIds) {
+    const j = getNode(jid);
+    if (!j) continue;
+    const d = dist2(bestPx, bestPy, j.coordinates[0], j.coordinates[1]);
+    if (d < nearestJDist) { nearestJDist = d; nearestJId = jid; }
+  }
+
+  if (!nearestJId) { showToast('No junctions on corridor.'); return; }
+
+  saveUndoSnapshot();
+
+  const unitId = generateId(type);
+  const unitNode = {
+    id: unitId, type,
+    coordinates: [unitX, unitY],
+    connections: [], name: '',
+    boxParams: { stopX: round4(bestPx), stopY: round4(bestPy), ux, uy, side, corridorHalfWidth, corridorId: cor.id },
+    boxWidth: unitWidth,
+    boxDepth: offset,
+    boxShape: unitShape,
+    box: computeUnitBox(bestPx, bestPy, ux, uy, side, offset, unitWidth, corridorHalfWidth, unitShape),
+  };
+  if (type === 'amenity') unitNode.category = '';
+
+  // Auto-numbering: if a start number is set, assign next number and advance the counter
+  if (type === 'unit') {
+    const startEl = document.getElementById('unitStartNum');
+    const startVal = (startEl?.value || '').trim();
+    if (startVal) {
+      const num = parseInt(startVal, 10);
+      if (!isNaN(num)) {
+        unitNode.name = String(startVal);   // assign current number
+        startEl.value = String(num + 1);    // advance for next placement
+        saveToLocalStorage();
+      }
+    }
+  }
+
+  floor.nodes.push(unitNode);
+  usedIds.add(unitId);
+
+  const stopId = `S-${unitId}`;
+  const stopNode = {
+    id: stopId, type: 'stop',
+    coordinates: [round4(bestPx), round4(bestPy)],
+    connections: [unitId, nearestJId],
+  };
+  floor.nodes.push(stopNode);
+  usedIds.add(stopId);
+
+  unitNode.connections.push(stopId);
+  const jn = getNode(nearestJId);
+  if (jn && !jn.connections.includes(stopId)) jn.connections.push(stopId);
+
+  selectedNodeId = unitId;
+  selectedCorridorId = null;
+  refreshAll();
+  renderProps();
+  showToast(`${type} placed.`);
+}
+
+/* ===== Shaft placement ===== */
+
+function addShaftAt(x, y, type) {
+  saveUndoSnapshot();
+  const floor = activeFloor();
+  const id = generateId(type);
+  const node = {
+    id, type,
+    coordinates: [x, y],
+    connections: [],
+    shaft: id.replace(/-f[^-]+$/, ''),
+  };
+  floor.nodes.push(node);
+  usedIds.add(id);
+
+  const stopId = `S-${id}`;
+  const stop = { id: stopId, type: 'stop', coordinates: [x, y], connections: [id] };
+  floor.nodes.push(stop);
+  usedIds.add(stopId);
+  node.connections.push(stopId);
+
+  selectedNodeId = id;
+  selectedCorridorId = null;
+  refreshAll();
+  renderProps();
+  showToast(`${type} placed. Connect its stop to a corridor junction.`);
+}
+
+/* ===== Unit box geometry ===== */
+
+const DOOR_RATIO = 0.38; // door opening as fraction of unit width
+
+// Constrained corner drag: keeps the rectangle shape by fixing the opposite corner
+// and recomputing the two adjacent corners along the original edge directions.
+function constrainCornerDrag(node, idx, newLng, newLat) {
+  const box = node.box;
+  const pts = box.slice(0, 4); // [p0, p1, p2, p3]
+
+  // Derive axes from the current box edges
+  const ex = pts[1][0] - pts[0][0], ey = pts[1][1] - pts[0][1];
+  const eLen = Math.sqrt(ex*ex + ey*ey) || 1;
+  const ax = ex / eLen, ay = ey / eLen;       // along-unit axis
+  const px = -ay,       py =  ax;              // perp axis
+
+  // Opposite corner (stays fixed)
+  const oppIdx = (idx + 2) % 4;
+  const opp = pts[oppIdx];
+
+  // Half-dimensions from midpoint
+  const newCX = (newLng + opp[0]) / 2;
+  const newCY = (newLat  + opp[1]) / 2;
+  const toNew = [newLng - newCX, newLat - newCY];
+
+  // Signs of each corner relative to centre: [along, perp]
+  const signs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  const [sA, sP] = signs[idx];
+  const halfA = (toNew[0]*ax + toNew[1]*ay) * sA;
+  const halfP = (toNew[0]*px + toNew[1]*py) * sP;
+
+  const newPts = signs.map(([sa, sp]) => [
+    round4(newCX + sa * halfA * ax + sp * halfP * px),
+    round4(newCY + sa * halfA * ay + sp * halfP * py),
+  ]);
+  node.box = [...newPts, newPts[0]];
+  if (node.boxParams) {
+    node.boxWidth = round4(Math.abs(2 * halfA));
+    node.boxDepth  = round4(Math.abs(2 * halfP));
+  }
+}
+
+// Compute the wall outline with a door gap from the stored box corners.
+// box[0] and box[1] are always the corridor-facing (near) wall.
+// doorT: 0..1 along the near wall (p0→p1) where the door gap is centered. Default 0.5 (middle).
+function outlineFromBox(box, shape, doorT = 0.5) {
+  const pts = box.slice(0, box.length - 1); // strip closing coord
+  if (pts.length < 3) return pts;
+  if (shape === 'triangle') {
+    // Triangle: p0 → apex → p1 (no door gap)
+    return [pts[0], pts[2] || pts[1], pts[1]];
+  }
+  // Rectangle: pts = [nearLeft, nearRight, farRight, farLeft]
+  const [p0, p1, p2, p3] = pts;
+  // Door gap centered at doorT along near wall (p0→p1)
+  const half = DOOR_RATIO / 2;
+  const t1 = Math.max(0, doorT - half);
+  const t2 = Math.min(1, doorT + half);
+  const doorL = [round4(p0[0] + t1*(p1[0]-p0[0])), round4(p0[1] + t1*(p1[1]-p0[1]))];
+  const doorR = [round4(p0[0] + t2*(p1[0]-p0[0])), round4(p0[1] + t2*(p1[1]-p0[1]))];
+  // Trace: left jamb → near-left → far-left → far-right → near-right → right jamb
+  return [doorL, p0, p3, p2, p1, doorR];
+}
+
+function computeUnitOutline(stopX, stopY, ux, uy, side, depth, width, corridorHalfWidth, shape) {
+  const hw = width / 2;
+  const perpX = -uy * side, perpY = ux * side;
+  const nearX = stopX + perpX * corridorHalfWidth;
+  const nearY = stopY + perpY * corridorHalfWidth;
+  const farX = perpX * depth, farY = perpY * depth;
+  if (shape === 'triangle') {
+    // Triangle: just the two slanted sides, no door gap
+    return [
+      [round4(nearX - ux*hw), round4(nearY - uy*hw)],
+      [round4(nearX + farX),  round4(nearY + farY)],
+      [round4(nearX + ux*hw), round4(nearY + uy*hw)],
+    ];
+  }
+  // Rectangle outline: 3 full walls + 2 door jambs (gap at corridor side center)
+  const dHW = width * DOOR_RATIO / 2;
+  return [
+    [round4(nearX - ux*dHW),        round4(nearY - uy*dHW)],        // left door jamb tip
+    [round4(nearX - ux*hw),         round4(nearY - uy*hw)],         // near-left corner
+    [round4(nearX - ux*hw + farX),  round4(nearY - uy*hw + farY)],  // far-left corner
+    [round4(nearX + ux*hw + farX),  round4(nearY + uy*hw + farY)],  // far-right corner
+    [round4(nearX + ux*hw),         round4(nearY + uy*hw)],         // near-right corner
+    [round4(nearX + ux*dHW),        round4(nearY + uy*dHW)],        // right door jamb tip
+  ];
+}
+
+function computeUnitBox(stopX, stopY, ux, uy, side, depth, width, corridorHalfWidth, shape) {
+  const hw = width / 2;
+  const perpX = -uy * side, perpY = ux * side;
+  const nearX = stopX + perpX * corridorHalfWidth;
+  const nearY = stopY + perpY * corridorHalfWidth;
+  const farX  = perpX * depth, farY = perpY * depth;
+  if (shape === 'triangle') {
+    // Isoceles triangle: base flush against corridor wall, apex pointing outward
+    return [
+      [round4(nearX - ux * hw),        round4(nearY - uy * hw)],
+      [round4(nearX + ux * hw),        round4(nearY + uy * hw)],
+      [round4(nearX + farX),           round4(nearY + farY)],
+      [round4(nearX - ux * hw),        round4(nearY - uy * hw)],
+    ];
+  }
+  return [
+    [round4(nearX - ux * hw),        round4(nearY - uy * hw)],
+    [round4(nearX + ux * hw),        round4(nearY + uy * hw)],
+    [round4(nearX + ux * hw + farX), round4(nearY + uy * hw + farY)],
+    [round4(nearX - ux * hw + farX), round4(nearY - uy * hw + farY)],
+    [round4(nearX - ux * hw),        round4(nearY - uy * hw)],
+  ];
+}
+
+/* ===== Branch point insertion ===== */
+
+function insertJunctionOnCorridor(clickX, clickY, corridorId) {
+  const floor = activeFloor();
+  const cor = getCorridor(corridorId);
+  if (!cor || cor.junctionIds.length < 2) { showToast('Corridor has no junctions to branch from.'); return; }
+
+  // Project click onto corridor centerline
+  const [px, py, t] = closestOnSegWithT(clickX, clickY, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+
+  // Find t values for each existing junction along the corridor
+  const junctionTs = cor.junctionIds.map(jid => {
+    const j = getNode(jid);
+    if (!j) return 0;
+    const [,, jt] = closestOnSegWithT(j.coordinates[0], j.coordinates[1], cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+    return jt;
+  });
+
+  // Find insertion slot: first junction with t > click t
+  let insertIdx = junctionTs.findIndex(jt => jt > t);
+  if (insertIdx === -1) insertIdx = cor.junctionIds.length;
+  if (insertIdx === 0) insertIdx = 1;
+
+  const prevJId = cor.junctionIds[insertIdx - 1];
+  const nextJId = cor.junctionIds[insertIdx];
+
+  // Don't insert if we're right on top of an existing junction
+  const snapExisting = findSnapJunction(px, py);
+  if (snapExisting && cor.junctionIds.includes(snapExisting.id)) {
+    selectedNodeId = snapExisting.id;
+    selectedCorridorId = null;
+    refreshAll();
+    renderProps();
+    showToast('Snapped to existing junction. Draw a corridor from here.');
+    return;
+  }
+
+  saveUndoSnapshot();
+
+  // Create new junction at projected point
+  const newId = generateId('junction');
+  floor.nodes.push({ id: newId, type: 'junction', coordinates: [round4(px), round4(py)], connections: [] });
+  usedIds.add(newId);
+
+  // Splice into corridor chain: prevJ ↔ new ↔ nextJ (remove old prevJ ↔ nextJ link)
+  const prevJ = getNode(prevJId);
+  const nextJ = getNode(nextJId);
+  const newJ  = getNode(newId);
+
+  if (prevJ) {
+    prevJ.connections = prevJ.connections.filter(c => c !== nextJId);
+    prevJ.connections.push(newId);
+  }
+  if (nextJ) {
+    nextJ.connections = nextJ.connections.filter(c => c !== prevJId);
+    nextJ.connections.push(newId);
+  }
+  if (newJ) {
+    newJ.connections = [prevJId, nextJId].filter(Boolean);
+  }
+
+  cor.junctionIds.splice(insertIdx, 0, newId);
+
+  selectedNodeId = newId;
+  selectedCorridorId = null;
+  refreshAll();
+  renderProps();
+  showToast('Branch point inserted — now draw a corridor from here.');
+}
+
+/* ===== MapLibre setup ===== */
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {},
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f8f8f8' } }],
+  },
+  center: [0, 0],
+  zoom: 0,
+  renderWorldCopies: false,
+  pitchWithRotate: false,
+  dragRotate: false,
+  attributionControl: false,
+});
+
+map.on('load', () => {
+  map.fitBounds([[-10, -10], [10, 10]], { padding: 40, linear: true, maxZoom: 6 });
+
+  // Grid
+  const gridFC = { type: 'FeatureCollection', features: [] };
+  for (let x = WORLD_MIN[0]; x <= WORLD_MAX[0]; x++) {
+    gridFC.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [[x, WORLD_MIN[1]], [x, WORLD_MAX[1]]] } });
+  }
+  for (let y = WORLD_MIN[1]; y <= WORLD_MAX[1]; y++) {
+    gridFC.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [[WORLD_MIN[0], y], [WORLD_MAX[0], y]] } });
+  }
+  map.addSource('grid', { type: 'geojson', data: gridFC });
+  map.addLayer({ id: 'grid-lines', type: 'line', source: 'grid', paint: { 'line-color': '#e5e7eb', 'line-width': 1 } });
+
+  // Corridors (filled rectangles)
+  map.addSource('corridors', { type: 'geojson', data: emptyFC(), promoteId: 'id' });
+  map.addLayer({
+    id: 'corridors-fill', type: 'fill', source: 'corridors',
+    paint: {
+      'fill-color': '#818cf8',
+      'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.35, 0.15],
+    },
+  });
+  map.addLayer({
+    id: 'corridors-stroke', type: 'line', source: 'corridors',
+    paint: {
+      'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#4f46e5', '#818cf8'],
+      'line-width': 1.5,
+    },
+  });
+  map.addLayer({
+    id: 'corridors-label', type: 'symbol', source: 'corridors',
+    filter: ['!=', ['get', 'label'], ''],
+    layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-anchor': 'center' },
+    paint: { 'text-color': '#4f46e5', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
+  });
+
+  // Unit / amenity boxes
+  map.addSource('unit-boxes', { type: 'geojson', data: emptyFC(), promoteId: 'id' });
+  map.addLayer({
+    id: 'unit-boxes-fill', type: 'fill', source: 'unit-boxes',
+    paint: {
+      'fill-color': ['coalesce', ['get', 'color'], '#3b82f6'],
+      'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.35, 0.12],
+    },
+  });
+  // Unit outlines with door gap (separate LineString source, not polygon stroke)
+  map.addSource('unit-outlines', { type: 'geojson', data: emptyFC(), promoteId: 'id' });
+  map.addLayer({
+    id: 'unit-outlines-line', type: 'line', source: 'unit-outlines',
+    layout: { 'line-cap': 'square', 'line-join': 'miter' },
+    paint: {
+      'line-color': ['coalesce', ['get', 'color'], '#3b82f6'],
+      'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.5, 1.5],
+    },
+  });
+  map.addLayer({
+    id: 'unit-boxes-label', type: 'symbol', source: 'unit-boxes',
+    filter: ['!=', ['get', 'label'], ''],
+    layout: { 'text-field': ['get', 'label'], 'text-size': 10, 'text-anchor': 'center', 'text-max-width': 6 },
+    paint: { 'text-color': '#1e293b', 'text-halo-color': '#fff', 'text-halo-width': 1 },
+  });
+
+  // Connection lines (stop-to-leaf stubs only)
+  map.addSource('connections', { type: 'geojson', data: emptyFC() });
+  map.addLayer({
+    id: 'connection-lines', type: 'line', source: 'connections',
+    paint: { 'line-color': '#9ca3af', 'line-width': 1.5, 'line-dasharray': [3, 2] },
+  });
+
+  // Nodes
+  map.addSource('nodes', { type: 'geojson', data: emptyFC(), promoteId: 'id' });
+  map.addLayer({
+    id: 'nodes-ring', type: 'circle', source: 'nodes',
+    paint: {
+      'circle-radius': ['+', ['coalesce', ['get', 'radius'], 7], 5],
+      'circle-color': '#2979FF',
+      'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.4, 0],
+    },
+  });
+  map.addLayer({
+    id: 'nodes-circle', type: 'circle', source: 'nodes',
+    paint: {
+      'circle-radius': ['coalesce', ['get', 'radius'], 7],
+      'circle-color': ['coalesce', ['get', 'color'], '#111'],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#fff',
+    },
+  });
+  map.addLayer({
+    id: 'nodes-label', type: 'symbol', source: 'nodes',
+    filter: ['!=', ['get', 'label'], ''],
+    layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, 1.6], 'text-anchor': 'top' },
+    paint: { 'text-color': '#111', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
+  });
+
+  // Preview (corridor being drawn)
+  map.addSource('preview', { type: 'geojson', data: emptyFC() });
+  map.addLayer({
+    id: 'preview-line', type: 'line', source: 'preview',
+    filter: ['==', ['geometry-type'], 'LineString'],
+    paint: { 'line-color': '#818cf8', 'line-width': 2, 'line-dasharray': [4, 2] },
+  });
+  map.addLayer({
+    id: 'preview-dots', type: 'circle', source: 'preview',
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-radius': 4, 'circle-color': '#818cf8', 'circle-opacity': 0.65 },
+  });
+
+  // Snap indicator
+  map.addSource('snap', { type: 'geojson', data: emptyFC() });
+  map.addLayer({
+    id: 'snap-ring', type: 'circle', source: 'snap',
+    paint: { 'circle-radius': 14, 'circle-color': 'transparent', 'circle-stroke-width': 2, 'circle-stroke-color': '#fbbf24' },
+  });
+
+  // Corner handles (shown for selected units)
+  map.addSource('corner-handles', { type: 'geojson', data: emptyFC() });
+  map.addLayer({
+    id: 'corner-handles-layer', type: 'circle', source: 'corner-handles',
+    paint: {
+      'circle-radius': 6,
+      'circle-color': '#fff',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#2979FF',
+    },
+  });
+
+  // Stop handle (door position on corridor — shown for selected units)
+  map.addSource('stop-handle', { type: 'geojson', data: emptyFC() });
+  map.addLayer({
+    id: 'stop-handle-layer', type: 'circle', source: 'stop-handle',
+    paint: {
+      'circle-radius': 7,
+      'circle-color': '#2979FF',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#fff',
+    },
+  });
+
+  // Events
+  map.on('mousemove', onMouseMove);
+  map.on('click', 'corridors-fill', onClickCorridor);
+  map.on('click', 'unit-boxes-fill', onClickUnitBox);
+  map.on('click', 'nodes-circle', onClickNode);
+  map.on('click', onClickMap);
+
+  // Handle drag state
+  let dragPendingNodeId = null;
+  let dragStartPixel = null;
+  const DRAG_THRESHOLD_PX = 6;
+  let draggingCornerNodeId = null;
+  let draggingCornerIndex = null;
+  let draggingCornerFree = false;   // true when Shift held = free-form, false = constrained rectangle
+  let draggingStopNodeId = null;    // store node ID at mousedown so click propagation can't clear it
+
+  map.on('mousedown', 'nodes-circle', e => {
+    const feat = e.features?.[0];
+    if (!feat) return;
+    const node = getNode(feat.properties.id);
+    if (!node) return;
+    // Allow dragging junctions AND unit/amenity/shaft nodes
+    const draggable = node.type === 'junction' || node.box;
+    if (!draggable) return;
+    dragPendingNodeId = node.id;
+    dragStartPixel = [e.originalEvent.clientX, e.originalEvent.clientY];
+    map.dragPan.disable();
+  });
+
+  map.on('mousemove', e => {
+    // Initiate drag once threshold is exceeded
+    if (dragPendingNodeId && !draggingNodeId && dragStartPixel) {
+      const dx = e.originalEvent.clientX - dragStartPixel[0];
+      const dy = e.originalEvent.clientY - dragStartPixel[1];
+      if (Math.sqrt(dx*dx + dy*dy) > DRAG_THRESHOLD_PX) {
+        saveUndoSnapshot();
+        draggingNodeId = dragPendingNodeId;
+        dragPendingNodeId = null;
+        map.getCanvas().style.cursor = 'grabbing';
+        lastClickWasNode = true; // suppress click-as-corridor-anchor
+      }
+    }
+    if (!draggingNodeId) return;
+    const node = getNode(draggingNodeId);
+    if (!node) return;
+    const prevX = node.coordinates[0], prevY = node.coordinates[1];
+    const newX = round4(e.lngLat.lng), newY = round4(e.lngLat.lat);
+    const dx = newX - prevX, dy = newY - prevY;
+    node.coordinates = [newX, newY];
+    // If the node has a box, translate all its vertices by the same delta
+    if (node.box) {
+      node.box = node.box.map(([bx, by]) => [round4(bx + dx), round4(by + dy)]);
+      // Also shift boxParams anchor so the box can still be re-computed on resize
+      if (node.boxParams) {
+        node.boxParams.stopX = round4(node.boxParams.stopX + dx);
+        node.boxParams.stopY = round4(node.boxParams.stopY + dy);
+      }
+    }
+    refreshAll();
+  });
+
+  map.on('mouseup', () => {
+    dragPendingNodeId = null;
+    dragStartPixel = null;
+    if (!draggingNodeId) {
+      map.dragPan.enable();
+      return;
+    }
+    draggingNodeId = null;
+    map.dragPan.enable();
+    map.getCanvas().style.cursor = '';
+    saveToLocalStorage();
+  });
+
+  map.on('mousemove', 'nodes-circle', e => {
+    if (draggingNodeId) return;
+    const feat = e.features?.[0];
+    if (feat && getNode(feat.properties.id)?.type === 'junction') {
+      map.getCanvas().style.cursor = 'grab';
+    } else if (tool === 'select') {
+      map.getCanvas().style.cursor = 'pointer';
+    }
+  });
+  map.on('mouseleave', 'nodes-circle', () => { if (!draggingNodeId) map.getCanvas().style.cursor = ''; });
+  map.on('mousemove', 'corridors-fill', () => { if (tool === 'select') map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'corridors-fill', () => { if (tool === 'select') map.getCanvas().style.cursor = ''; });
+  map.on('mousemove', 'unit-boxes-fill', () => { if (tool === 'select') map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'unit-boxes-fill', () => { if (tool === 'select') map.getCanvas().style.cursor = ''; });
+
+  // Corner handle drag
+  map.on('mousedown', 'corner-handles-layer', e => {
+    const feat = e.features?.[0];
+    if (!feat) return;
+    e.preventDefault();
+    saveUndoSnapshot();
+    draggingCornerNodeId = feat.properties.nodeId;
+    draggingCornerIndex = feat.properties.cornerIdx;
+    draggingCornerFree = !!e.originalEvent?.shiftKey;
+    map.dragPan.disable();
+    map.getCanvas().style.cursor = 'crosshair';
+  });
+
+  // Stop handle drag — store the node ID immediately so click propagation can't clear it
+  map.on('mousedown', 'stop-handle-layer', e => {
+    e.preventDefault();
+    e.originalEvent?.stopPropagation();
+    const node = selectedNodeId ? getNode(selectedNodeId) : null;
+    if (!node?.boxParams) return;
+    saveUndoSnapshot();
+    draggingStopNodeId = selectedNodeId;
+    map.dragPan.disable();
+    map.getCanvas().style.cursor = 'grabbing';
+  });
+
+  map.on('mousemove', e => {
+    const lng = e.lngLat.lng, lat = e.lngLat.lat;
+
+    // ── Corner handle drag ──
+    if (draggingCornerNodeId !== null) {
+      const node = getNode(draggingCornerNodeId);
+      if (node?.box) {
+        const idx = draggingCornerIndex;
+        if (draggingCornerFree) {
+          // Free-form: just move the one corner
+          node.box[idx] = [round4(lng), round4(lat)];
+          if (idx === 0 && node.box.length === 5) node.box[4] = node.box[0];
+        } else {
+          // Constrained: maintain rectangle — opposite corner fixed, recompute all 4
+          constrainCornerDrag(node, idx, lng, lat);
+        }
+        refreshAll();
+      }
+      return;
+    }
+
+    // ── Stop handle drag (slide entrance along corridor wall) ──
+    if (draggingStopNodeId) {
+      const node = getNode(draggingStopNodeId);
+      if (node?.boxParams) {
+        const floor = activeFloor();
+        // Prefer the unit's own corridor, fall back to nearest
+        const corridors = floor.corridors || [];
+        let bestPx = lng, bestPy = lat, bestDist = Infinity;
+        for (const cor of corridors) {
+          if (node.boxParams.corridorId && cor.id !== node.boxParams.corridorId) continue;
+          const [cx, cy] = closestOnSegWithT(lng, lat, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+          const d = dist2(lng, lat, cx, cy);
+          if (d < bestDist) { bestDist = d; bestPx = cx; bestPy = cy; }
+        }
+        // Move only the stop — box stays fixed, door gap follows via outlineFromBox(doorT)
+        node.boxParams.stopX = round4(bestPx);
+        node.boxParams.stopY = round4(bestPy);
+        // Update the stop node on the graph too
+        const stopNode = floor.nodes.find(s => s.type === 'stop' && node.connections.includes(s.id));
+        if (stopNode) stopNode.coordinates = [round4(bestPx), round4(bestPy)];
+        refreshAll();
+      }
+      return;
+    }
+  });
+
+  map.on('mouseup', () => {
+    if (draggingCornerNodeId !== null || draggingStopNodeId) {
+      const finishedNodeId = draggingCornerNodeId || draggingStopNodeId;
+      draggingCornerNodeId = null;
+      draggingCornerIndex = null;
+      draggingCornerFree = false;
+      draggingStopNodeId = null;
+      map.dragPan.enable();
+      map.getCanvas().style.cursor = '';
+      // Sync final dimensions back to Options so next placed unit matches
+      const n = getNode(finishedNodeId);
+      if (n?.boxWidth !== undefined) {
+        const wEl = document.getElementById('unitWidth');
+        const dEl = document.getElementById('unitOffset');
+        if (wEl) wEl.value = n.boxWidth;
+        if (dEl) dEl.value = n.boxDepth;
+      }
+      saveToLocalStorage();
+    }
+  });
+
+  map.on('mousemove', 'corner-handles-layer', () => { map.getCanvas().style.cursor = 'crosshair'; });
+  map.on('mouseleave', 'corner-handles-layer', () => { map.getCanvas().style.cursor = ''; });
+  map.on('mousemove', 'stop-handle-layer', () => { map.getCanvas().style.cursor = 'grab'; });
+  map.on('mouseleave', 'stop-handle-layer', () => { map.getCanvas().style.cursor = ''; });
+
+  refreshAll();
+  renderFloors();
+  renderProps();
+  setTool('corridor');
+  restoreFromLocalStorage();
+});
+
+function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
+
+/* ===== Map refresh ===== */
+
+function refreshAll() {
+  if (!map.getSource('nodes')) return;
+  const floor = activeFloor();
+
+  // Nodes
+  const nodeFeatures = floor.nodes.map(n => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: n.coordinates },
+    properties: {
+      id: n.id,
+      color: TYPE_COLORS[n.type] || '#111',
+      radius: TYPE_RADIUS[n.type] || 7,
+      label: n.name || (['junction', 'stop'].includes(n.type) ? '' : n.id),
+    },
+  }));
+  map.getSource('nodes').setData({ type: 'FeatureCollection', features: nodeFeatures });
+
+  // Connection lines (stop ↔ leaf only — hide stop-junction lines per node-editor convention)
+  const nodeMap = new Map(floor.nodes.map(n => [n.id, n]));
+  const seen = new Set();
+  const NEEDS_STOP = new Set(['unit', 'amenity', 'elevator', 'stairs', 'escalator']);
+  const lineFeatures = [];
+  for (const n of floor.nodes) {
+    for (const cid of (n.connections || [])) {
+      const key = [n.id, cid].sort().join('||');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const other = nodeMap.get(cid);
+      if (!other) continue;
+      const oneIsStop = n.type === 'stop' || other.type === 'stop';
+      const oneIsLeaf = NEEDS_STOP.has(n.type) || NEEDS_STOP.has(other.type);
+      if (oneIsStop && !oneIsLeaf) continue; // hide stop-junction lines
+      lineFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [n.coordinates, other.coordinates] },
+        properties: {},
+      });
+    }
+  }
+  map.getSource('connections').setData({ type: 'FeatureCollection', features: lineFeatures });
+
+  // Unit / amenity boxes
+  const BOX_TYPES = new Set(['unit', 'amenity']);
+  const boxFeatures = floor.nodes
+    .filter(n => BOX_TYPES.has(n.type) && n.box?.length)
+    .map(n => ({
+      type: 'Feature',
+      id: n.id,
+      geometry: { type: 'Polygon', coordinates: [n.box] },
+      properties: {
+        id: n.id,
+        color: TYPE_COLORS[n.type] || '#3b82f6',
+        label: n.name || '',
+      },
+    }));
+  map.getSource('unit-boxes').setData({ type: 'FeatureCollection', features: boxFeatures });
+
+  // Unit outlines with door gap — computed from actual box corners
+  if (map.getSource('unit-outlines')) {
+    const outlineFeatures = floor.nodes
+      .filter(n => BOX_TYPES.has(n.type) && n.box?.length >= 4)
+      .map(n => {
+        // Compute door position (0..1 along near wall) from stop's along-corridor position
+        let doorT = 0.5;
+        if (n.boxParams) {
+          const p0 = n.box[0], p1 = n.box[1];
+          const wallLen = dist2(p0[0], p0[1], p1[0], p1[1]);
+          if (wallLen > 0) {
+            const wx = p1[0] - p0[0], wy = p1[1] - p0[1];
+            const sx = n.boxParams.stopX - p0[0], sy = n.boxParams.stopY - p0[1];
+            doorT = Math.max(0.05, Math.min(0.95, (sx * wx + sy * wy) / (wallLen * wallLen)));
+          }
+        }
+        const coords = outlineFromBox(n.box, n.boxShape || 'rectangle', doorT);
+        return {
+          type: 'Feature',
+          id: n.id,
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: { id: n.id, color: TYPE_COLORS[n.type] || '#3b82f6' },
+        };
+      });
+    map.getSource('unit-outlines').setData({ type: 'FeatureCollection', features: outlineFeatures });
+  }
+
+  // Corner handles — shown for selected unit
+  if (map.getSource('corner-handles')) {
+    const selNode = selectedNodeId ? floor.nodes.find(n => n.id === selectedNodeId) : null;
+    const handleFeats = [];
+    if (selNode && BOX_TYPES.has(selNode.type) && selNode.box?.length >= 4) {
+      const corners = selNode.box.slice(0, selNode.box.length - 1); // exclude closing coord
+      corners.forEach((pt, i) => {
+        handleFeats.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: pt },
+          properties: { nodeId: selNode.id, cornerIdx: i },
+        });
+      });
+    }
+    map.getSource('corner-handles').setData({ type: 'FeatureCollection', features: handleFeats });
+  }
+
+  // Stop handle — shown for selected unit (door anchor on corridor)
+  if (map.getSource('stop-handle')) {
+    const selNode = selectedNodeId ? floor.nodes.find(n => n.id === selectedNodeId) : null;
+    const stopFeats = [];
+    if (selNode && BOX_TYPES.has(selNode.type) && selNode.boxParams) {
+      stopFeats.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [selNode.boxParams.stopX, selNode.boxParams.stopY] },
+        properties: {},
+      });
+    }
+    map.getSource('stop-handle').setData({ type: 'FeatureCollection', features: stopFeats });
+  }
+
+  // Corridors
+  const corFeatures = (floor.corridors || []).map(c => ({
+    type: 'Feature',
+    id: c.id,
+    geometry: { type: 'Polygon', coordinates: [corridorPolygon(c)] },
+    properties: { id: c.id, label: c.label || '' },
+  }));
+  map.getSource('corridors').setData({ type: 'FeatureCollection', features: corFeatures });
+
+  // Feature states
+  for (const n of floor.nodes) {
+    const isSel = n.id === selectedNodeId || selectedNodeIds.has(n.id);
+    map.setFeatureState({ source: 'nodes', id: n.id }, { selected: isSel });
+    if (BOX_TYPES.has(n.type) && n.box?.length) {
+      map.setFeatureState({ source: 'unit-boxes', id: n.id }, { selected: isSel });
+      map.setFeatureState({ source: 'unit-outlines', id: n.id }, { selected: isSel });
+    }
+  }
+  for (const c of (floor.corridors || [])) {
+    map.setFeatureState({ source: 'corridors', id: c.id }, { selected: c.id === selectedCorridorId });
+  }
+
+  saveToLocalStorage();
+}
+
+function corridorPolygon(c) {
+  const dx = c.end[0] - c.start[0], dy = c.end[1] - c.start[1];
+  const len = dist2(c.start[0], c.start[1], c.end[0], c.end[1]);
+  if (len === 0) return [];
+  const ux = dx / len, uy = dy / len;
+  const lx = -uy * c.width / 2, ly = ux * c.width / 2;
+  const [sx, sy] = c.start, [ex, ey] = c.end;
+  return [
+    [sx + lx, sy + ly], [ex + lx, ey + ly],
+    [ex - lx, ey - ly], [sx - lx, sy - ly],
+    [sx + lx, sy + ly],
+  ];
+}
+
+function updatePreview(toX, toY) {
+  if (!map.getSource('preview')) return;
+  if (tool !== 'corridor' || !corridorStart) {
+    map.getSource('preview').setData(emptyFC());
+    return;
+  }
+
+  const start = corridorStart;
+  const spacing = parseFloat(document.getElementById('junctionSpacing').value) || 1.0;
+  const len = dist2(start[0], start[1], toX, toY);
+  const count = Math.max(2, Math.round(len / spacing) + 1);
+  const dx = toX - start[0], dy = toY - start[1];
+
+  const features = [
+    { type: 'Feature', geometry: { type: 'LineString', coordinates: [start, [toX, toY]] }, properties: {} },
+  ];
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [start[0] + t * dx, start[1] + t * dy] },
+      properties: {},
+    });
+  }
+  map.getSource('preview').setData({ type: 'FeatureCollection', features });
+}
+
+function updateSnapIndicator(x, y) {
+  if (!map.getSource('snap')) return;
+  const snap = (tool === 'corridor') ? findSnapJunction(x, y) : null;
+  if (snap) {
+    map.getSource('snap').setData({
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: snap.coordinates }, properties: {} }],
+    });
+  } else {
+    map.getSource('snap').setData(emptyFC());
+  }
+}
+
+/* ===== Click handlers ===== */
+
+let lastClickWasNode = false;
+let lastClickWasCorridor = false;
+let lastHandledEventTime = 0; // prevents double-fire when node dot and unit box overlap
+
+function onMouseMove(e) {
+  const x = e.lngLat.lng;
+  const y = e.lngLat.lat;
+  updatePreview(x, y);
+  updateSnapIndicator(x, y);
+  updateBranchPreview(x, y);
+}
+
+function updateBranchPreview(x, y) {
+  if (!map.getSource('preview')) return;
+  if (tool !== 'branch') return;
+
+  const corridors = activeFloor().corridors || [];
+  let bestCor = null, bestDist = Infinity, bestPx = 0, bestPy = 0;
+  for (const cor of corridors) {
+    const [cx, cy] = closestOnSegWithT(x, y, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+    const d = dist2(x, y, cx, cy);
+    if (d < bestDist) { bestDist = d; bestCor = cor; bestPx = cx; bestPy = cy; }
+  }
+
+  if (!bestCor || bestDist > 1.5) {
+    map.getSource('preview').setData(emptyFC());
+    return;
+  }
+
+  map.getSource('preview').setData({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [bestPx, bestPy] },
+      properties: {},
+    }],
+  });
+}
+
+function onClickUnitBox(e) {
+  // If onClickNode already handled this exact DOM event, skip to avoid double-fire
+  const t = e.originalEvent?.timeStamp ?? 0;
+  if (t && t === lastHandledEventTime) return;
+  lastHandledEventTime = t;
+  lastClickWasNode = true;
+  if (tool !== 'select') return;
+  const id = e.features[0]?.properties?.id;
+  if (!id) return;
+  handleSelectClick(id, e.originalEvent?.shiftKey);
+}
+
+
+function handleSelectClick(id, shift) {
+  selectedCorridorId = null;
+  if (shift) {
+    // Toggle this id in the multi-select set
+    if (selectedNodeIds.has(id)) {
+      selectedNodeIds.delete(id);
+    } else {
+      selectedNodeIds.add(id);
+      // Also pull in the previously single-selected node if any
+      if (selectedNodeId) selectedNodeIds.add(selectedNodeId);
+    }
+    selectedNodeId = selectedNodeIds.size === 1 ? [...selectedNodeIds][0] : null;
+  } else {
+    // Plain click — clear multi-select, single-select this node
+    selectedNodeIds.clear();
+    selectedNodeId = id;
+  }
+  refreshAll();
+  renderProps();
+}
+
+function onClickNode(e) {
+  lastHandledEventTime = e.originalEvent?.timeStamp ?? 0;
+  lastClickWasNode = true;
+  const id = e.features[0]?.properties?.id;
+  if (!id) return;
+
+  // Stop nodes are handled by the stop-handle-layer; clicking them here would deselect the unit.
+  const clickedNode = activeFloor().nodes.find(n => n.id === id);
+  if (clickedNode?.type === 'stop') return;
+
+  // In corridor mode, clicking any junction acts as a corridor anchor point
+  if (tool === 'corridor') {
+    const node = activeFloor().nodes.find(n => n.id === id);
+    if (node && node.type === 'junction') {
+      const [x, y] = node.coordinates;
+      if (!corridorStart) {
+        corridorStart = [x, y];
+        updateHint('Click to place corridor end — Escape to cancel.');
+      } else {
+        commitCorridor(corridorStart, [x, y]);
+        corridorStart = null;
+        map.getSource('preview')?.setData(emptyFC());
+        map.getSource('snap')?.setData(emptyFC());
+        updateHint('Click to start a new corridor.');
+      }
+    }
+    return;
+  }
+
+  // Clicking a unit/amenity dot from any tool mode auto-switches to select
+  if (tool !== 'select') {
+    const node = activeFloor().nodes.find(n => n.id === id);
+    if (node && (node.type === 'unit' || node.type === 'amenity')) {
+      setTool('select');
+      handleSelectClick(id, false);
+    }
+    return;
+  }
+  handleSelectClick(id, e.originalEvent?.shiftKey);
+}
+
+function onClickCorridor(e) {
+  lastClickWasCorridor = true;
+  const id = e.features[0]?.properties?.id;
+  if (!id) return;
+
+  if (tool === 'branch') {
+    const x = round4(e.lngLat.lng);
+    const y = round4(e.lngLat.lat);
+    insertJunctionOnCorridor(x, y, id);
+    return;
+  }
+
+  if (tool !== 'select') return;
+  selectedCorridorId = id;
+  selectedNodeId = null;
+  refreshAll();
+  renderProps();
+}
+
+function onClickMap(e) {
+  if (lastClickWasNode)     { lastClickWasNode = false;     return; }
+  if (lastClickWasCorridor) { lastClickWasCorridor = false; return; }
+
+  const x = round4(e.lngLat.lng);
+  const y = round4(e.lngLat.lat);
+
+  if (tool === 'corridor') {
+    if (!corridorStart) {
+      corridorStart = [x, y];
+      updateHint('Click to place corridor end — Escape to cancel.');
+    } else {
+      commitCorridor(corridorStart, [x, y]);
+      corridorStart = null;
+      map.getSource('preview')?.setData(emptyFC());
+      map.getSource('snap')?.setData(emptyFC());
+      updateHint('Click to start a new corridor.');
+    }
+  } else if (tool === 'unit') {
+    addUnitToSide(x, y, 'unit');
+  } else if (tool === 'amenity') {
+    addUnitToSide(x, y, 'amenity');
+  } else if (tool === 'shaft') {
+    addShaftAt(x, y, shaftType);
+  } else if (tool === 'select') {
+    selectedNodeId = null;
+    selectedNodeIds.clear();
+    selectedCorridorId = null;
+    refreshAll();
+    renderProps();
+  }
+}
+
+/* ===== Tool management ===== */
+
+function setTool(t) {
+  tool = t;
+  corridorStart = null;
+  map.getSource('preview')?.setData(emptyFC());
+  map.getSource('snap')?.setData(emptyFC());
+
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === tool);
+  });
+
+  document.getElementById('shaftOptions')?.classList.toggle('visible', tool === 'shaft');
+
+  const showOpts = ['corridor', 'unit', 'amenity'].includes(tool);
+  if (document.getElementById('corridor-options')) {
+    document.getElementById('corridor-options').style.display = showOpts ? '' : 'none';
+  }
+
+  const hints = {
+    corridor: 'Click to place corridor start point.',
+    unit:     'Click on either side of a corridor to place a unit.',
+    amenity:  'Click on either side of a corridor to place an amenity.',
+    shaft:    `Click to place ${shaftType}.`,
+    branch:   'Click anywhere on a corridor to insert a branch point junction.',
+    select:   'Click a node or corridor to select and edit.',
+  };
+  updateHint(hints[tool] || '');
+  map.getCanvas().style.cursor = tool !== 'select' ? 'crosshair' : '';
+}
+
+function updateHint(msg) {
+  const el = document.getElementById('hint');
+  if (el) el.textContent = msg;
+}
+
+/* ===== Floor management ===== */
+
+function renderFloors() {
+  const container = document.getElementById('floorList');
+  if (!container) return;
+  container.innerHTML = '';
+  floors.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'floor-tab' + (i === activeFloorIndex ? ' active' : '');
+    div.innerHTML = `
+      <span class="floor-tab-label">${esc(f.name)}</span>
+      ${floors.length > 1 ? `<button class="floor-tab-del" title="Remove floor">✕</button>` : ''}
+    `;
+    div.querySelector('.floor-tab-label').addEventListener('click', () => switchFloor(i));
+    div.querySelector('.floor-tab-del')?.addEventListener('click', e => { e.stopPropagation(); removeFloor(i); });
+    container.appendChild(div);
+  });
+}
+
+function switchFloor(idx) {
+  if (idx < 0 || idx >= floors.length) return;
+  selectedNodeId = null;
+  selectedCorridorId = null;
+  corridorStart = null;
+  activeFloorIndex = idx;
+  renderFloors();
+  refreshAll();
+  renderProps();
+}
+
+function addFloor() {
+  const maxNum = Math.max(...floors.map(f => typeof f.number === 'number' ? f.number : 0), 0);
+  floors.push({ number: maxNum + 1, name: `Floor ${maxNum + 1}`, nodes: [], corridors: [] });
+  switchFloor(floors.length - 1);
+  renderFloors();
+}
+
+function removeFloor(idx) {
+  if (floors.length <= 1) { showToast('Cannot remove last floor.'); return; }
+  if (!confirm(`Remove "${floors[idx].name}"? All nodes on this floor will be deleted.`)) return;
+  for (const n of floors[idx].nodes) usedIds.delete(n.id);
+  for (const c of (floors[idx].corridors || [])) usedIds.delete(c.id);
+  floors.splice(idx, 1);
+  if (activeFloorIndex >= floors.length) activeFloorIndex = floors.length - 1;
+  renderFloors();
+  refreshAll();
+  renderProps();
+}
+
+function duplicateFloor() {
+  const src = activeFloor();
+  const maxNum = Math.max(...floors.map(f => typeof f.number === 'number' ? f.number : 0), 0);
+  const newNum = maxNum + 1;
+  const newFloor = { number: newNum, name: `Floor ${newNum}`, nodes: [], corridors: [] };
+  const idMap = new Map();
+
+  // Pass 1: assign new IDs for non-stop nodes
+  for (const n of src.nodes) {
+    if (n.type === 'stop') continue;
+    let newId;
+    if (CROSS_FLOOR.has(n.type)) {
+      newId = n.id.replace(/-f[^-]+$/, `-f${newNum}`);
+      if (usedIds.has(newId)) { showToast(`Cannot duplicate: ID "${newId}" already exists.`); return; }
+    } else {
+      const prefix = TYPE_ID_PREFIX[n.type];
+      do {
+        typeCounters[n.type] = (typeCounters[n.type] || 0) + 1;
+        newId = `${prefix}${typeCounters[n.type]}`;
+      } while (usedIds.has(newId));
+    }
+    idMap.set(n.id, newId);
+  }
+
+  // Pass 2: stop nodes (derived from leaf IDs)
+  for (const n of src.nodes) {
+    if (n.type !== 'stop') continue;
+    const leafId = n.id.startsWith('S-') ? n.id.slice(2) : null;
+    const newLeafId = leafId ? idMap.get(leafId) : null;
+    if (!newLeafId) continue;
+    const newId = `S-${newLeafId}`;
+    if (usedIds.has(newId)) { showToast(`Cannot duplicate: stop ID "${newId}" already exists.`); return; }
+    idMap.set(n.id, newId);
+  }
+
+  // Pass 3: build nodes
+  for (const n of src.nodes) {
+    const newId = idMap.get(n.id);
+    if (!newId) continue;
+    const nn = { id: newId, type: n.type, coordinates: [...n.coordinates], connections: [] };
+    if (n.name      !== undefined) nn.name     = n.name;
+    if (n.category  !== undefined) nn.category = n.category;
+    if (CROSS_FLOOR.has(n.type))   nn.shaft    = n.shaft;
+    if (n.connections) nn.connections = n.connections.map(c => idMap.get(c)).filter(Boolean);
+    newFloor.nodes.push(nn);
+    usedIds.add(newId);
+  }
+
+  // Pass 4: corridors with remapped junction IDs
+  for (const c of (src.corridors || [])) {
+    const newCId = generateCorridorId();
+    newFloor.corridors.push({
+      id: newCId,
+      start: [...c.start],
+      end: [...c.end],
+      junctionIds: c.junctionIds.map(jid => idMap.get(jid)).filter(Boolean),
+      width: c.width,
+      label: c.label || '',
+    });
+    usedIds.add(newCId);
+  }
+
+  floors.push(newFloor);
+  switchFloor(floors.length - 1);
+  showToast(`Duplicated as Floor ${newNum}.`);
+}
+
+/* ===== Properties panel ===== */
+
+function renderProps() {
+  const content = document.getElementById('props-content');
+  if (!content) return;
+
+  // Multi-select panel
+  if (selectedNodeIds.size > 1) {
+    const ids = [...selectedNodeIds];
+    const types = [...new Set(ids.map(id => {
+      const n = getNode(id); return n ? n.type : '?';
+    }))].join(', ');
+    content.innerHTML = `
+      <p style="font-size:12px;color:#475569;margin-bottom:12px;">
+        <strong style="color:#1e293b">${ids.length} nodes selected</strong><br>
+        <span style="font-size:11px">${types}</span>
+      </p>
+      <button class="prop-btn danger" id="ms-delete" style="width:100%;padding:8px">
+        Delete ${ids.length} selected
+      </button>
+    `;
+    document.getElementById('ms-delete')?.addEventListener('click', deleteSelected);
+    return;
+  }
+
+  if (selectedCorridorId && !selectedNodeId) {
+    renderCorridorProps(content);
+    return;
+  }
+
+  if (!selectedNodeId) {
+    content.innerHTML = '<p class="prop-empty">Select a node or<br>corridor to edit.</p>';
+    return;
+  }
+
+  const node = getNode(selectedNodeId);
+  if (!node) { content.innerHTML = '<p class="prop-empty">Node not found.</p>'; return; }
+
+  const color = TYPE_COLORS[node.type] || '#111';
+  let html = `
+    <span class="type-badge" style="background:${color}">${node.type}</span>
+    <div class="prop-field"><label>ID</label><input id="pp-id" value="${esc(node.id)}"></div>
+    <div class="prop-field"><label>Coords</label><input readonly value="[${node.coordinates[0]}, ${node.coordinates[1]}]"></div>
+  `;
+
+  if (node.name !== undefined) {
+    html += `<div class="prop-field"><label>Name</label><input id="pp-name" value="${esc(node.name || '')}"></div>`;
+  }
+  if (node.category !== undefined) {
+    html += `<div class="prop-field"><label>Category</label><input id="pp-category" value="${esc(node.category || '')}"></div>`;
+  }
+  if (node.shaft !== undefined) {
+    html += `<div class="prop-field"><label>Shaft ID</label><input id="pp-shaft" value="${esc(node.shaft || '')}"></div>`;
+  }
+  if (node.boxParams) {
+    html += `
+      <div class="prop-field"><label>Box width</label><input id="pp-box-width" type="number" step="0.1" min="0.1" value="${node.boxWidth || 1.0}"></div>
+      <div class="prop-field"><label>Box depth</label><input id="pp-box-depth" type="number" step="0.1" min="0.1" value="${node.boxDepth || 0.9}"></div>
+      <div class="prop-field"><label>Shape</label>
+        <select id="pp-box-shape" style="width:100%;padding:5px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;color:#1e293b;">
+          <option value="rectangle" ${(node.boxShape||'rectangle')==='rectangle'?'selected':''}>Rectangle</option>
+          <option value="triangle" ${node.boxShape==='triangle'?'selected':''}>Triangle</option>
+        </select>
+      </div>
+    `;
+  }
+
+  // Show connections
+  const connNodes = (node.connections || []).map(cid => getNode(cid)).filter(Boolean);
+  if (connNodes.length) {
+    html += `<div class="prop-field"><label>Connections (${connNodes.length})</label>
+      <ul class="conn-list">`;
+    for (const cn of connNodes) {
+      html += `<li class="conn-item">
+        <span class="conn-dot" style="background:${TYPE_COLORS[cn.type] || '#111'}"></span>
+        <span>${esc(cn.id)}</span>
+      </li>`;
+    }
+    html += `</ul></div>`;
+  }
+
+  html += `
+    <div class="prop-actions">
+      <button class="prop-btn save" id="pp-save">Save</button>
+      <button class="prop-btn danger" id="pp-delete">Delete</button>
+    </div>
+  `;
+
+  content.innerHTML = html;
+  document.getElementById('pp-save')?.addEventListener('click', saveNodeProps);
+  document.getElementById('pp-delete')?.addEventListener('click', () => deleteNode(selectedNodeId));
+}
+
+function renderCorridorProps(content) {
+  const c = getCorridor(selectedCorridorId);
+  if (!c) { content.innerHTML = '<p class="prop-empty">Corridor not found.</p>'; return; }
+  content.innerHTML = `
+    <span class="type-badge" style="background:#818cf8">corridor</span>
+    <div class="prop-field"><label>ID</label><input readonly value="${esc(c.id)}"></div>
+    <div class="prop-field"><label>Label</label><input id="cp-label" value="${esc(c.label || '')}"></div>
+    <div class="prop-field"><label>Width</label><input id="cp-width" type="number" step="0.1" min="0.1" value="${c.width}"></div>
+    <div class="prop-field"><label>Junctions</label><input readonly value="${c.junctionIds.length}"></div>
+    <div class="prop-actions">
+      <button class="prop-btn save" id="cp-save">Save</button>
+      <button class="prop-btn danger" id="cp-delete">Delete</button>
+    </div>
+  `;
+  document.getElementById('cp-save')?.addEventListener('click', saveCorridorProps);
+  document.getElementById('cp-delete')?.addEventListener('click', () => deleteCorridor(selectedCorridorId));
+}
+
+function saveNodeProps() {
+  const node = getNode(selectedNodeId);
+  if (!node) return;
+
+  const newId = (document.getElementById('pp-id')?.value || '').trim();
+  if (!newId) { showToast('ID cannot be empty.'); return; }
+
+  if (newId !== node.id) {
+    if (usedIds.has(newId)) { showToast(`ID "${newId}" already in use.`); return; }
+    for (const fl of floors) {
+      for (const n of fl.nodes) {
+        if (n.connections) n.connections = n.connections.map(c => c === node.id ? newId : c);
+      }
+      for (const cor of (fl.corridors || [])) {
+        cor.junctionIds = cor.junctionIds.map(j => j === node.id ? newId : j);
+      }
+    }
+    usedIds.delete(node.id);
+    usedIds.add(newId);
+    selectedNodeId = newId;
+    node.id = newId;
+  }
+
+  if (node.name      !== undefined) node.name     = (document.getElementById('pp-name')?.value     || '').trim();
+  if (node.category  !== undefined) node.category = (document.getElementById('pp-category')?.value || '').trim();
+  if (node.shaft     !== undefined) node.shaft    = (document.getElementById('pp-shaft')?.value    || '').trim();
+
+  if (node.boxParams) {
+    const newW = parseFloat(document.getElementById('pp-box-width')?.value) || node.boxWidth;
+    const newD = parseFloat(document.getElementById('pp-box-depth')?.value) || node.boxDepth;
+    const newShape = document.getElementById('pp-box-shape')?.value || node.boxShape || 'rectangle';
+    node.boxWidth = newW;
+    node.boxDepth = newD;
+    node.boxShape = newShape;
+    // Sync back to Options so next unit inherits these values
+    const wEl = document.getElementById('unitWidth'); if (wEl) wEl.value = newW;
+    const dEl = document.getElementById('unitOffset'); if (dEl) dEl.value = newD;
+    const sEl = document.getElementById('unitShape'); if (sEl) sEl.value = newShape;
+    const { stopX, stopY, ux, uy, side, corridorHalfWidth } = node.boxParams;
+    node.box = computeUnitBox(stopX, stopY, ux, uy, side, newD, newW, corridorHalfWidth, newShape);
+    node.coordinates = [
+      round4(stopX + (-uy) * side * (corridorHalfWidth + newD / 2)),
+      round4(stopY +   ux  * side * (corridorHalfWidth + newD / 2)),
+    ];
+  }
+
+  refreshAll();
+  renderProps();
+  showToast('Saved.');
+}
+
+function saveCorridorProps() {
+  const c = getCorridor(selectedCorridorId);
+  if (!c) return;
+  c.label = (document.getElementById('cp-label')?.value || '').trim();
+  const newWidth = parseFloat(document.getElementById('cp-width')?.value) || c.width;
+  c.width = newWidth;
+  const widthInput = document.getElementById('corridorWidth');
+  if (widthInput) widthInput.value = newWidth;
+  refreshAll();
+  renderProps();
+  showToast('Saved.');
+}
+
+function deleteSelected() {
+  if (!selectedNodeIds.size) return;
+  saveUndoSnapshot();
+  for (const id of [...selectedNodeIds]) {
+    const floor = activeFloor();
+    const idx = floor.nodes.findIndex(n => n.id === id);
+    if (idx === -1) continue;
+    floor.nodes.splice(idx, 1);
+    usedIds.delete(id);
+    for (const n of floor.nodes) {
+      if (n.connections) n.connections = n.connections.filter(c => c !== id);
+    }
+    for (const c of (floor.corridors || [])) {
+      c.junctionIds = c.junctionIds.filter(j => j !== id);
+    }
+  }
+  selectedNodeIds.clear();
+  selectedNodeId = null;
+  refreshAll();
+  renderProps();
+  showToast('Deleted selected nodes.');
+}
+
+function deleteNode(id) {
+  saveUndoSnapshot();
+  const floor = activeFloor();
+  const idx = floor.nodes.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  floor.nodes.splice(idx, 1);
+  usedIds.delete(id);
+  for (const n of floor.nodes) {
+    if (n.connections) n.connections = n.connections.filter(c => c !== id);
+  }
+  for (const c of (floor.corridors || [])) {
+    c.junctionIds = c.junctionIds.filter(j => j !== id);
+  }
+  if (selectedNodeId === id) selectedNodeId = null;
+  refreshAll();
+  renderProps();
+  showToast('Deleted.');
+}
+
+function deleteCorridor(id) {
+  saveUndoSnapshot();
+  const floor = activeFloor();
+  const idx = (floor.corridors || []).findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const cor = floor.corridors[idx];
+
+  if (confirm('Also delete this corridor\'s junction nodes?')) {
+    for (const jid of cor.junctionIds) {
+      const jIdx = floor.nodes.findIndex(n => n.id === jid);
+      if (jIdx === -1) continue;
+      floor.nodes.splice(jIdx, 1);
+      usedIds.delete(jid);
+      for (const n of floor.nodes) {
+        if (n.connections) n.connections = n.connections.filter(c => c !== jid);
+      }
+    }
+  }
+
+  floor.corridors.splice(idx, 1);
+  usedIds.delete(id);
+  if (selectedCorridorId === id) selectedCorridorId = null;
+  refreshAll();
+  renderProps();
+  showToast('Corridor deleted.');
+}
+
+/* ===== Import / Export ===== */
+
+function exportProperty() {
+  const data = {
+    id:       parseInt(document.getElementById('propId')?.value)          || 1,
+    name:     (document.getElementById('propName')?.value     || '').trim(),
+    codeName: (document.getElementById('propCodeName')?.value || '').trim(),
+    floors: floors.map(fl => ({
+      number: fl.number,
+      name:   fl.name,
+      hallways: (fl.corridors || []).map(corridorToHallway),
+      nodes: fl.nodes.map(n => {
+        const out = { id: n.id, type: n.type, coordinates: n.coordinates };
+        if (n.name)                out.name        = n.name;
+        if (n.category)            out.category    = n.category;
+        if (n.connections?.length) out.connections = [...n.connections];
+        if (n.shaft)               out.shaft       = n.shaft;
+        if (n.info != null)        out.info        = n.info;
+        return out;
+      }),
+    })),
+  };
+  downloadText(JSON.stringify(data, null, 2), `${data.codeName || 'property'}.json`, 'application/json');
+  showToast('Exported.');
+}
+
+function corridorToHallway(c) {
+  const mx = (c.start[0] + c.end[0]) / 2;
+  const my = (c.start[1] + c.end[1]) / 2;
+  const dx = c.end[0] - c.start[0], dy = c.end[1] - c.start[1];
+  const len = dist2(c.start[0], c.start[1], c.end[0], c.end[1]);
+  const isH = Math.abs(dx) >= Math.abs(dy);
+  return {
+    id:          c.id,
+    type:        isH ? 'hallway-h' : 'hallway-v',
+    coordinates: [round4(mx), round4(my)],
+    width:       isH ? round4(len) : c.width,
+    height:      isH ? c.width     : round4(len),
+    label:       c.label || '',
+  };
+}
+
+async function importProperty(file) {
+  let text;
+  try { text = await file.text(); } catch { showToast('Could not read file.'); return; }
+  let data;
+  try { data = JSON.parse(text); } catch { showToast('Invalid JSON.'); return; }
+  if (!Array.isArray(data.floors)) { showToast('Missing floors array.'); return; }
+
+  if (document.getElementById('propName'))     document.getElementById('propName').value     = data.name     || '';
+  if (document.getElementById('propCodeName')) document.getElementById('propCodeName').value = data.codeName || '';
+  if (document.getElementById('propId'))       document.getElementById('propId').value       = data.id       || '';
+
+  saveUndoSnapshot();
+  usedIds.clear();
+  Object.keys(typeCounters).forEach(k => delete typeCounters[k]);
+  corridorCounter = 0;
+
+  floors = data.floors.map(f => {
+    const nodes = (f.nodes || []).map(n => {
+      usedIds.add(n.id);
+      const node = { id: n.id, type: n.type, coordinates: n.coordinates, connections: [] };
+      if (n.name      !== undefined) node.name     = n.name;
+      if (n.category  !== undefined) node.category = n.category;
+      if (n.connections)             node.connections = [...n.connections];
+      if (n.shaft)                   node.shaft    = n.shaft;
+      if (n.info      !== undefined) node.info     = n.info;
+      return node;
+    });
+
+    // Reconstruct corridors from hallways (no junction metadata — geometry only)
+    const corridors = (f.hallways || []).map(h => {
+      usedIds.add(h.id);
+      const isH = h.type === 'hallway-h';
+      const hw = h.width / 2, hh = h.height / 2;
+      const start = isH
+        ? [round4(h.coordinates[0] - hw), h.coordinates[1]]
+        : [h.coordinates[0], round4(h.coordinates[1] - hh)];
+      const end = isH
+        ? [round4(h.coordinates[0] + hw), h.coordinates[1]]
+        : [h.coordinates[0], round4(h.coordinates[1] + hh)];
+      return { id: h.id, start, end, junctionIds: [], width: isH ? h.height : h.width, label: h.label || '' };
+    });
+
+    return { number: f.number ?? 1, name: f.name || `Floor ${f.number}`, nodes, corridors };
+  });
+
+  activeFloorIndex = 0;
+  selectedNodeId = null;
+  selectedCorridorId = null;
+  corridorStart = null;
+
+  renderFloors();
+  refreshAll();
+  renderProps();
+  showToast('Loaded.');
+}
+
+/* ===== Utilities ===== */
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('visible'), 2500);
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function downloadText(text, filename, mime) {
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([text], { type: mime })),
+    download: filename,
+  });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* ===== Event bindings ===== */
+
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+document.querySelectorAll('.shaft-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.shaft-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    shaftType = opt.dataset.shaft;
+    if (tool === 'shaft') updateHint(`Click to place ${shaftType}.`);
+  });
+});
+
+document.getElementById('previewBtn')?.addEventListener('click', () => {
+  localStorage.setItem('wimp_preview', JSON.stringify({
+    floors,
+    activeFloorIndex,
+    propertyName: document.getElementById('propName')?.value || 'Preview',
+  }));
+  window.open('app-preview.html?v=1', '_blank');
+});
+
+['propName','propCodeName','propId','unitStartNum'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', saveToLocalStorage);
+});
+
+document.getElementById('addFloor')?.addEventListener('click', addFloor);
+document.getElementById('dupFloor')?.addEventListener('click', duplicateFloor);
+document.getElementById('exportJson')?.addEventListener('click', exportProperty);
+document.getElementById('importJson')?.addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (f) await importProperty(f);
+  e.target.value = '';
+});
+
+/* ===== Floor Plan Import ===== */
+
+let floorplanDataURL = null;
+let floorplanAspect = 1; // width/height ratio of the image
+
+function fpCoords(cx, cy, halfW, halfH) {
+  return [
+    [cx - halfW,  cy + halfH], // top-left
+    [cx + halfW,  cy + halfH], // top-right
+    [cx + halfW,  cy - halfH], // bottom-right
+    [cx - halfW,  cy - halfH], // bottom-left
+  ];
+}
+
+function applyFloorplan() {
+  if (!floorplanDataURL || !map.getSource) return;
+  const scale   = parseFloat(document.getElementById('fpScale')?.value)   || 10;
+  const cx      = parseFloat(document.getElementById('fpCX')?.value)      || 0;
+  const cy      = parseFloat(document.getElementById('fpCY')?.value)      || 0;
+  const opacity = parseFloat(document.getElementById('fpOpacity')?.value) ?? 0.35;
+
+  const halfW = scale / 2;
+  const halfH = (scale / floorplanAspect) / 2;
+  const coords = fpCoords(cx, cy, halfW, halfH);
+
+  if (map.getSource('floorplan-img')) {
+    map.getSource('floorplan-img').updateImage({ url: floorplanDataURL, coordinates: coords });
+    map.setPaintProperty('floorplan-layer', 'raster-opacity', opacity);
+  } else {
+    map.addSource('floorplan-img', { type: 'image', url: floorplanDataURL, coordinates: coords });
+    map.addLayer({ id: 'floorplan-layer', type: 'raster', source: 'floorplan-img',
+      paint: { 'raster-opacity': opacity } }, 'grid-lines');
+  }
+}
+
+async function loadFloorplanFile(file) {
+  const isPDF = file.name.toLowerCase().endsWith('.pdf');
+  if (isPDF) {
+    if (typeof pdfjsLib === 'undefined') { showToast('PDF.js not loaded yet, try again.'); return; }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdf.numPages;
+
+    let pageNum = 1;
+    if (totalPages > 1) {
+      const input = window.prompt(`This PDF has ${totalPages} pages. Which page do you want to use? (1–${totalPages})`, document.getElementById('fpPage')?.value || '1');
+      if (input === null) return; // cancelled
+      pageNum = Math.min(Math.max(parseInt(input, 10) || 1, 1), totalPages);
+      if (document.getElementById('fpPage')) document.getElementById('fpPage').value = pageNum;
+    }
+
+    const page = await pdf.getPage(pageNum);
+    const vp = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width;
+    canvas.height = vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    floorplanDataURL = canvas.toDataURL('image/png');
+    floorplanAspect = vp.width / vp.height;
+  } else {
+    await renderImage(file);
+  }
+  document.getElementById('floorplanControls').style.display = 'block';
+  applyFloorplan();
+  showToast('Floor plan loaded. Adjust scale and position.');
+}
+
+async function renderPDFPage(file, pageNum) {
+  if (typeof pdfjsLib === 'undefined') { showToast('PDF.js not loaded yet, try again.'); return; }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(Math.min(pageNum, pdf.numPages));
+  const vp = page.getViewport({ scale: 2 });
+  const canvas = document.createElement('canvas');
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  floorplanDataURL = canvas.toDataURL('image/png');
+  floorplanAspect = vp.width / vp.height;
+}
+
+async function renderImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        floorplanAspect = img.width / img.height;
+        floorplanDataURL = e.target.result;
+        resolve();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeFloorplan() {
+  floorplanDataURL = null;
+  if (map.getLayer('floorplan-layer')) map.removeLayer('floorplan-layer');
+  if (map.getSource('floorplan-img')) map.removeSource('floorplan-img');
+  document.getElementById('floorplanControls').style.display = 'none';
+  document.getElementById('floorplanFile').value = '';
+  showToast('Floor plan removed.');
+}
+
+document.getElementById('floorplanFile')?.addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (f) await loadFloorplanFile(f);
+  e.target.value = '';
+});
+
+['fpScale', 'fpCX', 'fpCY'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => { if (floorplanDataURL) applyFloorplan(); });
+});
+
+document.getElementById('fpOpacity')?.addEventListener('input', () => {
+  if (!floorplanDataURL) return;
+  const opacity = parseFloat(document.getElementById('fpOpacity').value);
+  if (map.getLayer('floorplan-layer')) map.setPaintProperty('floorplan-layer', 'raster-opacity', opacity);
+});
+
+document.getElementById('fpRemove')?.addEventListener('click', removeFloorplan);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+    e.preventDefault();
+    undo();
+    return;
+  }
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedNodeIds.size > 1) { deleteSelected(); return; }
+    if (selectedNodeId) { deleteNode(selectedNodeId); return; }
+  }
+
+  if (e.key === 'Escape' && corridorStart) {
+    corridorStart = null;
+    map.getSource('preview')?.setData(emptyFC());
+    map.getSource('snap')?.setData(emptyFC());
+    updateHint('Click to start a new corridor.');
+    showToast('Corridor cancelled.');
+  }
+});
+</script>
+</body>
+</html>

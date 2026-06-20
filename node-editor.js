@@ -56,6 +56,11 @@ const TYPE_ID_PREFIX = {
   checkpoint: 'N-Ch-',
 };
 
+const HALLWAY_DEFAULTS = {
+  'hallway-v': { width: 0.5, height: 3 },
+  'hallway-h': { width: 3, height: 0.5 },
+};
+
 const CROSS_FLOOR_TYPES = new Set(['elevator', 'stairs', 'escalator']);
 const NEEDS_STOP = new Set(['unit', 'amenity', 'elevator', 'stairs', 'escalator']);
 
@@ -75,7 +80,7 @@ function getModeHint() {
 
 /* ===== State ===== */
 
-let floors = [{ number: 1, name: 'Ground Floor', nodes: [] }];
+let floors = [{ number: 1, name: 'Ground Floor', nodes: [], hallways: [] }];
 let activeFloorIndex = 0;
 let selectedNodeId = null;
 let mode = 'add';
@@ -84,6 +89,11 @@ let movingNodeId = null;
 let pendingStopForNodeId = null;
 let lastClickWasLine = false;
 let hoveredLineNodeIds = [];
+
+let pendingShape = null;
+let movingHallwayId = null;
+let selectedHallwayId = null;
+let hallwayCounter = 0;
 
 const usedIds = new Set();
 const typeCounters = {};
@@ -94,6 +104,37 @@ function activeFloor() { return floors[activeFloorIndex]; }
 
 function getFloorNode(id) {
   return activeFloor().nodes.find(n => n.id === id) || null;
+}
+
+function activeFloorHallways() {
+  const f = activeFloor();
+  if (!f.hallways) f.hallways = [];
+  return f.hallways;
+}
+
+function getHallway(id) {
+  return activeFloorHallways().find(h => h.id === id) || null;
+}
+
+function generateHallwayId(type) {
+  const prefix = type === 'hallway-v' ? 'HV-' : 'HH-';
+  do { hallwayCounter++; } while (usedIds.has(`${prefix}${hallwayCounter}`));
+  return `${prefix}${hallwayCounter}`;
+}
+
+function hallwayPolygon(h) {
+  const [cx, cy] = h.coordinates;
+  const hw = h.width / 2, hh = h.height / 2;
+  return [[cx - hw, cy + hh], [cx + hw, cy + hh], [cx + hw, cy - hh], [cx - hw, cy - hh], [cx - hw, cy + hh]];
+}
+
+function hallwayToFeature(h) {
+  return {
+    type: 'Feature',
+    id: h.id,
+    geometry: { type: 'Polygon', coordinates: [hallwayPolygon(h)] },
+    properties: { id: h.id, label: h.label || '' },
+  };
 }
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -166,6 +207,35 @@ map.on('load', () => {
   }
   map.addSource('grid', { type: 'geojson', data: gridFC });
   map.addLayer({ id: 'grid-lines', type: 'line', source: 'grid', paint: { 'line-color': '#e0e0e0', 'line-width': 1 } });
+
+  // Hallways (rendered below connection lines and nodes)
+  map.addSource('hallways', { type: 'geojson', data: emptyFC(), promoteId: 'id' });
+  map.addLayer({
+    id: 'hallways-fill',
+    type: 'fill',
+    source: 'hallways',
+    paint: {
+      'fill-color': '#818cf8',
+      'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.35, 0.15],
+    },
+  });
+  map.addLayer({
+    id: 'hallways-stroke',
+    type: 'line',
+    source: 'hallways',
+    paint: {
+      'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#4f46e5', '#818cf8'],
+      'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2, 1.5],
+    },
+  });
+  map.addLayer({
+    id: 'hallways-label',
+    type: 'symbol',
+    source: 'hallways',
+    filter: ['!=', ['get', 'label'], ''],
+    layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-anchor': 'center' },
+    paint: { 'text-color': '#4f46e5', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
+  });
 
   // Connection lines
   map.addSource('connections', { type: 'geojson', data: emptyFC() });
@@ -247,6 +317,10 @@ map.on('load', () => {
     },
   });
 
+  map.on('click', 'hallways-fill', onClickHallway);
+  map.on('mousemove', 'hallways-fill', () => { if (!pendingShape && !movingHallwayId && !movingNodeId && !pendingStopForNodeId) map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'hallways-fill', () => { if (!pendingShape && !movingHallwayId && !movingNodeId && !pendingStopForNodeId) map.getCanvas().style.cursor = ''; });
+
   map.on('click', 'nodes-circle', onClickNode);
   map.on('click', 'connection-lines-hit', onClickConnectionLine);
   map.on('click', onClickMap);
@@ -312,6 +386,7 @@ function refreshMap() {
   map.getSource('connections').setData({ type: 'FeatureCollection', features: lineFeatures });
 
   updateFeatureStates();
+  refreshHallways();
   renderNodeList();
   updateNodeCount();
 }
@@ -329,9 +404,36 @@ function updateFeatureStates() {
   }
 }
 
+function refreshHallways() {
+  if (!map.getSource('hallways')) return;
+  const features = activeFloorHallways().map(hallwayToFeature);
+  map.getSource('hallways').setData({ type: 'FeatureCollection', features });
+  updateHallwayStates();
+}
+
+function updateHallwayStates() {
+  if (!map.getSource('hallways')) return;
+  for (const h of activeFloorHallways()) {
+    map.setFeatureState({ source: 'hallways', id: h.id }, { selected: h.id === selectedHallwayId });
+  }
+}
+
 /* ===== Click handlers ===== */
 
 let lastClickWasNode = false;
+
+function onClickHallway(e) {
+  if (pendingShape || movingHallwayId || movingNodeId || pendingStopForNodeId) return;
+  lastClickWasNode = true;
+  const id = e.features[0]?.properties?.id;
+  if (!id) return;
+  selectedHallwayId = id;
+  selectedNodeId = null;
+  updateFeatureStates();
+  updateHallwayStates();
+  renderPropsPanel();
+  renderNodeList();
+}
 
 function onClickNode(e) {
   lastClickWasNode = true;
@@ -518,6 +620,24 @@ function onClickMap(e) {
     return;
   }
 
+  if (pendingShape) {
+    placeHallway(x, y);
+    return;
+  }
+
+  if (movingHallwayId) {
+    const h = getHallway(movingHallwayId);
+    if (h) {
+      h.coordinates = [x, y];
+      movingHallwayId = null;
+      map.getCanvas().style.cursor = '';
+      document.getElementById('btn-move-hallway')?.classList.remove('active');
+      refreshHallways();
+      renderHallwayPanel();
+    }
+    return;
+  }
+
   if (movingNodeId) {
     const node = getFloorNode(movingNodeId);
     if (node) {
@@ -538,7 +658,9 @@ function onClickMap(e) {
     updateFeatureStates();
   } else {
     selectedNodeId = null;
+    selectedHallwayId = null;
     updateFeatureStates();
+    updateHallwayStates();
     renderPropsPanel();
     renderNodeList();
   }
@@ -637,6 +759,134 @@ function placeStopNode(x, y, leafId) {
   refreshMap();
   renderPropsPanel();
   showToast('Stop node placed. Connect it to the corridor in Connect mode.');
+}
+
+/* ===== Hallway operations ===== */
+
+function enterShapePlacement(shapeType) {
+  if (pendingStopForNodeId) cancelStopPlacement();
+  if (movingNodeId) { movingNodeId = null; map.getCanvas().style.cursor = ''; }
+  pendingShape = shapeType;
+  map.getCanvas().style.cursor = 'crosshair';
+  const name = shapeType === 'hallway-v' ? 'vertical hallway' : 'horizontal hallway';
+  const hint = document.getElementById('modeHint');
+  if (hint) hint.textContent = `Click on the map to place a ${name}. Press Escape to cancel.`;
+}
+
+function cancelShapePlacement() {
+  pendingShape = null;
+  map.getCanvas().style.cursor = '';
+  const hint = document.getElementById('modeHint');
+  if (hint) hint.textContent = getModeHint();
+}
+
+function placeHallway(x, y) {
+  const type = pendingShape;
+  const id = generateHallwayId(type);
+  const def = HALLWAY_DEFAULTS[type];
+  const h = { id, type, coordinates: [x, y], width: def.width, height: def.height, label: '' };
+  activeFloorHallways().push(h);
+  usedIds.add(id);
+  selectedHallwayId = id;
+  selectedNodeId = null;
+  cancelShapePlacement();
+  refreshHallways();
+  renderPropsPanel();
+  showToast(`${type === 'hallway-v' ? 'Vertical' : 'Horizontal'} hallway placed.`);
+}
+
+function deleteHallway(id) {
+  const hallways = activeFloorHallways();
+  const idx = hallways.findIndex(h => h.id === id);
+  if (idx === -1) return;
+  hallways.splice(idx, 1);
+  usedIds.delete(id);
+  if (selectedHallwayId === id) selectedHallwayId = null;
+  if (movingHallwayId === id) { movingHallwayId = null; map.getCanvas().style.cursor = ''; }
+  refreshHallways();
+  renderPropsPanel();
+}
+
+function beginMoveHallway(id) {
+  movingHallwayId = id;
+  map.getCanvas().style.cursor = 'crosshair';
+  document.getElementById('btn-move-hallway')?.classList.add('active');
+  showToast('Click on the map to move the hallway.');
+}
+
+function renderHallwayPanel() {
+  const panel = document.getElementById('propsPanel');
+  if (!panel) return;
+  const h = getHallway(selectedHallwayId);
+  if (!h) { panel.innerHTML = '<p class="empty-msg">Hallway not found.</p>'; return; }
+  const typeName = h.type === 'hallway-v' ? 'Vertical Hallway' : 'Horizontal Hallway';
+  panel.innerHTML = `
+    <div class="prop-header">
+      <span class="type-badge" style="background:#818cf8">${typeName}</span>
+    </div>
+    <div class="prop-row">
+      <label>ID</label>
+      <input type="text" id="hall-prop-id" value="${esc(h.id)}" />
+    </div>
+    <div class="prop-row">
+      <label>Label</label>
+      <input type="text" id="hall-prop-label" value="${esc(h.label || '')}" placeholder="e.g. Main Corridor" />
+    </div>
+    <div class="prop-row">
+      <label>Width</label>
+      <input type="number" id="hall-prop-width" value="${h.width}" step="0.1" min="0.1" />
+    </div>
+    <div class="prop-row">
+      <label>Height</label>
+      <input type="number" id="hall-prop-height" value="${h.height}" step="0.1" min="0.1" />
+    </div>
+    <div class="prop-row">
+      <label>Coords</label>
+      <span class="coord-val">[${h.coordinates[0]}, ${h.coordinates[1]}]</span>
+      <button class="btn-move btn-sm" id="btn-move-hallway">Move</button>
+    </div>
+    <div class="prop-actions">
+      <button class="btn btn-sm" id="btn-save-hallway">Save</button>
+      <button class="btn btn-sm btn-danger" id="btn-delete-hallway">Delete</button>
+    </div>
+  `;
+  document.getElementById('btn-save-hallway')?.addEventListener('click', saveHallwayProps);
+  document.getElementById('btn-delete-hallway')?.addEventListener('click', () => deleteHallway(selectedHallwayId));
+  document.getElementById('btn-move-hallway')?.addEventListener('click', () => {
+    if (movingHallwayId === selectedHallwayId) {
+      movingHallwayId = null;
+      map.getCanvas().style.cursor = '';
+      document.getElementById('btn-move-hallway')?.classList.remove('active');
+    } else {
+      beginMoveHallway(selectedHallwayId);
+    }
+  });
+  if (movingHallwayId === selectedHallwayId) {
+    document.getElementById('btn-move-hallway')?.classList.add('active');
+  }
+}
+
+function saveHallwayProps() {
+  const h = getHallway(selectedHallwayId);
+  if (!h) return;
+
+  const newId = (document.getElementById('hall-prop-id')?.value || '').trim();
+  if (!newId) { showToast('ID cannot be empty.'); return; }
+  if (newId !== h.id) {
+    if (usedIds.has(newId)) { showToast(`ID "${newId}" is already in use.`); return; }
+    usedIds.delete(h.id);
+    usedIds.add(newId);
+    selectedHallwayId = newId;
+    h.id = newId;
+  }
+
+  h.label  = (document.getElementById('hall-prop-label')?.value  || '').trim();
+  h.width  = parseFloat(document.getElementById('hall-prop-width')?.value)  || h.width;
+  h.height = parseFloat(document.getElementById('hall-prop-height')?.value) || h.height;
+
+  refreshHallways();
+  renderHallwayPanel();
+  showToast('Saved.');
 }
 
 function linkStopToLeaf(stopId, leafId) {
@@ -738,6 +988,8 @@ function beginMove(id) {
 /* ===== Properties panel ===== */
 
 function renderPropsPanel() {
+  if (selectedHallwayId && !selectedNodeId) { renderHallwayPanel(); return; }
+
   const panel = document.getElementById('propsPanel');
   if (!panel) return;
 
@@ -944,9 +1196,12 @@ function renderFloorEdit() {
 function switchFloor(idx) {
   if (idx < 0 || idx >= floors.length) return;
   selectedNodeId = null;
+  selectedHallwayId = null;
   connectFromId = null;
   if (movingNodeId) { movingNodeId = null; map.getCanvas().style.cursor = ''; }
+  if (movingHallwayId) { movingHallwayId = null; map.getCanvas().style.cursor = ''; }
   if (pendingStopForNodeId) cancelStopPlacement();
+  if (pendingShape) cancelShapePlacement();
   clearLineHover();
   activeFloorIndex = idx;
   renderFloorTabs();
@@ -958,7 +1213,7 @@ function switchFloor(idx) {
 function addFloor() {
   const maxNum = Math.max(...floors.map(f => typeof f.number === 'number' ? f.number : 0), 0);
   const num = maxNum + 1;
-  floors.push({ number: num, name: `Floor ${num}`, nodes: [] });
+  floors.push({ number: num, name: `Floor ${num}`, nodes: [], hallways: [] });
   switchFloor(floors.length - 1);
   renderFloorTabs();
 }
@@ -1107,6 +1362,7 @@ function setMode(newMode) {
     cancelStopPlacement();
     showToast('Stop node creation cancelled.');
   }
+  if (pendingShape) cancelShapePlacement();
   clearLineHover();
 
   mode = newMode;
@@ -1139,6 +1395,7 @@ function exportProperty() {
     floors: floors.map(floor => ({
       number: floor.number,
       name: floor.name,
+      hallways: (floor.hallways || []).map(h => ({ ...h })),
       nodes: floor.nodes.map(n => {
         const out = { id: n.id, type: n.type, coordinates: n.coordinates };
         if (n.name)                out.name        = n.name;
@@ -1172,6 +1429,7 @@ async function importProperty(file) {
   floors = data.floors.map(f => ({
     number: f.number ?? 1,
     name: f.name || `Floor ${f.number}`,
+    hallways: (f.hallways || []).map(h => { usedIds.add(h.id); return { ...h }; }),
     nodes: (f.nodes || []).map(n => {
       usedIds.add(n.id);
       const node = { id: n.id, type: n.type, coordinates: n.coordinates };
@@ -1260,6 +1518,10 @@ document.addEventListener('keydown', (e) => {
     cancelStopPlacement();
     showToast('Stop node skipped.');
   }
+  if (e.key === 'Escape' && pendingShape) {
+    cancelShapePlacement();
+    showToast('Shape placement cancelled.');
+  }
 });
 
 /* ===== Utilities ===== */
@@ -1280,6 +1542,26 @@ function esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+/* ===== Shape picker bindings ===== */
+
+document.getElementById('openShapePicker')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('shapePickerMenu')?.classList.toggle('open');
+});
+
+document.querySelectorAll('.shape-option').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('shapePickerMenu')?.classList.remove('open');
+    enterShapePlacement(btn.dataset.shape);
+  });
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (!document.getElementById('shapePickerWrap')?.contains(e.target)) {
+    document.getElementById('shapePickerMenu')?.classList.remove('open');
+  }
+});
 
 function downloadText(text, filename, mime) {
   const blob = new Blob([text], { type: mime });

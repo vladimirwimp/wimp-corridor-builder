@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blueprint Importer — WIMP</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root { --blue:#2563eb; --bl:#eff4ff; --bh:#1d4ed8; --text:#111; --muted:#6b7280; --border:#e5e7eb; --bg:#f9fafb; --r:12px; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); }
+    .hdr { background:#fff; border-bottom:1px solid var(--border); padding:13px 24px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:10; }
+    .hdr a { color:var(--blue); text-decoration:none; font-size:14px; }
+    .hdr h1 { font-size:16px; font-weight:700; }
+    .setup { max-width:720px; margin:0 auto; padding:28px 24px; display:flex; flex-direction:column; gap:16px; }
+    .card { background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:20px; }
+    .ct { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--blue); margin-bottom:14px; }
+    .field { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+    .field:last-child { margin-bottom:0; }
+    .field label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    .field input { border:1.5px solid var(--border); border-radius:8px; padding:9px 12px; font-size:14px; outline:none; font-family:inherit; transition:border-color .15s; }
+    .field input:focus { border-color:var(--blue); }
+    .row2 { display:flex; gap:10px; }
+    .row2 .field { flex:1; }
+    .uz { border:2px dashed var(--border); border-radius:10px; padding:24px 16px; text-align:center; cursor:pointer; position:relative; transition:border-color .15s,background .15s; }
+    .uz:hover,.uz.drag { border-color:var(--blue); background:var(--bl); }
+    .uz input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+    .uz.ok { border-color:var(--blue); background:var(--bl); }
+    #prev { display:none; border:1px solid var(--border); border-radius:8px; max-height:150px; width:100%; object-fit:contain; background:#f4f4f4; margin-top:12px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer; font-family:inherit; font-weight:600; border-radius:10px; transition:background .15s,opacity .15s; gap:6px; }
+    .btn-p { background:var(--blue); color:#fff; padding:14px; border-radius:10px; font-size:15px; width:100%; }
+    .btn-p:hover:not(:disabled) { background:var(--bh); }
+    .btn-p:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-g { background:var(--bl); color:var(--blue); padding:7px 14px; font-size:13px; }
+    .btn-g:hover { background:#dbeafe; }
+    .btn-sm { background:var(--bl); color:var(--blue); padding:5px 11px; font-size:12px; border-radius:8px; border:none; cursor:pointer; font-family:inherit; font-weight:600; }
+    .stat { display:none; align-items:center; gap:10px; padding:11px 14px; background:var(--bl); border-radius:10px; font-size:13px; color:var(--blue); font-weight:500; }
+    .stat.on { display:flex; }
+    .stat.err { background:#fef2f2; color:#dc2626; }
+    .spin { width:15px; height:15px; border:2.5px solid currentColor; border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .anote { font-size:12px; color:var(--muted); margin-top:5px; line-height:1.5; }
+    .anote a { color:var(--blue); }
+
+    /* Editor layout */
+    .editor-wrap { display:none; flex-direction:column; min-height:calc(100vh - 50px); }
+    .editor-wrap.on { display:flex; }
+    .editor-layout { display:grid; grid-template-columns:360px 1fr; flex:1; min-height:0; }
+
+    .json-panel { background:#1e2030; display:flex; flex-direction:column; position:sticky; top:50px; height:calc(100vh - 50px); }
+    .jtop { padding:10px 14px; background:#252837; border-bottom:1px solid #333; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .jtitle { font-size:11px; font-weight:700; color:#a8b2d8; letter-spacing:.05em; text-transform:uppercase; }
+    .json-textarea { flex:1; width:100%; background:#1e2030; color:#cdd6f4; border:none; outline:none; padding:14px; font-family:'Fira Code','Cascadia Code','Courier New',monospace; font-size:11.5px; line-height:1.75; resize:none; tab-size:2; }
+    .jerr { padding:7px 14px; background:#3b1a1a; color:#f28b82; font-size:11px; font-family:monospace; flex-shrink:0; display:none; white-space:pre-wrap; }
+    .jerr.on { display:block; }
+    .jhelp { font-size:10.5px; color:#64748b; padding:8px 14px; background:#1a1c2e; border-top:1px solid #333; flex-shrink:0; line-height:1.7; }
+    .jhelp code { color:#7dd3fc; }
+
+    .map-panel { display:flex; flex-direction:column; background:#f8f9fa; overflow:auto; }
+    .mtop { padding:12px 20px; background:#fff; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; flex-shrink:0; }
+    .map-canvas { flex:1; overflow:auto; padding:32px 24px; display:flex; align-items:flex-start; justify-content:center; }
+
+    /* Step indicators */
+    .steps-bar { display:flex; gap:0; padding:12px 20px; background:#fff; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .step-pill { flex:1; text-align:center; font-size:11px; font-weight:600; color:var(--muted); padding:5px 8px; border-radius:6px; position:relative; }
+    .step-pill.active { color:var(--blue); background:var(--bl); }
+    .step-pill.done { color:#16a34a; }
+    .step-pill::after { content:'→'; position:absolute; right:-6px; top:50%; transform:translateY(-50%); color:#d1d5db; font-size:10px; }
+    .step-pill:last-child::after { display:none; }
+  </style>
+</head>
+<body>
+<header class="hdr">
+  <a href="node-editor.html">← Node Editor</a>
+  <h1>Blueprint Importer</h1>
+  <div style="margin-left:auto;display:flex;gap:8px" id="hdrTools" style="display:none">
+    <button class="btn btn-sm" id="reBtn2">↺ Re-analyze</button>
+    <button class="btn btn-g" id="dlSvg2" style="padding:5px 12px;font-size:12px">SVG</button>
+    <button class="btn btn-g" id="dlPng2" style="padding:5px 12px;font-size:12px">PNG</button>
+  </div>
+</header>
+
+<!-- SETUP -->
+<div class="setup" id="setup">
+  <div class="card">
+    <div class="ct">Upload Blueprint PDF</div>
+    <div class="uz" id="uz">
+      <input type="file" id="pdfIn" accept=".pdf" />
+      <div style="font-size:22px;margin-bottom:6px">📄</div>
+      <div style="font-size:14px;font-weight:600" id="ul1">Click or drag a PDF here</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px" id="ul2">Building blueprint or floor plan</div>
+    </div>
+    <img id="prev" alt="preview" />
+    <div class="row2" style="margin-top:14px">
+      <div class="field"><label>Page</label><input type="number" id="pg" value="3" min="1" max="99" style="max-width:72px" /></div>
+      <div class="field"><label>Floor name</label><input type="text" id="floorLbl" placeholder="e.g. Level 4" /></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Claude API Key</div>
+    <div class="field">
+      <label>API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <p class="anote">Saved in localStorage — only sent to <a href="https://api.anthropic.com" target="_blank">api.anthropic.com</a>.</p>
+    </div>
+  </div>
+  <div class="stat" id="stat"><div class="spin"></div><span id="statTxt">Working…</span></div>
+  <button class="btn btn-p" id="goBtn" disabled>Analyze Blueprint →</button>
+  <div style="height:20px"></div>
+</div>
+
+<!-- EDITOR -->
+<div class="editor-wrap" id="editorWrap">
+  <div class="steps-bar" id="stepsBar">
+    <div class="step-pill active" id="sp1">1 · Corridors</div>
+    <div class="step-pill" id="sp2">2 · Units</div>
+    <div class="step-pill" id="sp3">3 · Cores + Extras</div>
+    <div class="step-pill" id="sp4">✓ Done</div>
+  </div>
+  <div class="editor-layout">
+    <div class="json-panel">
+      <div class="jtop">
+        <span class="jtitle" id="jtitle">Edit JSON</span>
+        <div style="display:flex;gap:5px">
+          <button class="btn-sm" id="fmtBtn" style="background:#2d3250;color:#a8b2d8">Format</button>
+          <button class="btn-sm" id="nextStepBtn" style="background:#2563eb;color:#fff">Next Step →</button>
+        </div>
+      </div>
+      <textarea class="json-textarea" id="jsonEditor" spellcheck="false"></textarea>
+      <div class="jerr" id="jerr"></div>
+      <div class="jhelp" id="jhelp">Edit values, map updates live.</div>
+    </div>
+    <div class="map-panel">
+      <div class="mtop">
+        <div>
+          <div style="font-size:14px;font-weight:700" id="mapTitle">Floor Map</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px" id="mapSub"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="reBtn">↺ Re-analyze</button>
+          <button class="btn btn-g" id="dlSvg">SVG</button>
+          <button class="btn btn-g" id="dlPng">PNG</button>
+        </div>
+      </div>
+      <div class="map-canvas"><div id="mapSvg"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let pdfFile=null, fullB64=null, keyB64=null, lastData=null, originalJson='', currentStep=1;
+
+const apiEl=document.getElementById('apiKey');
+const sk=localStorage.getItem('wimp_key'); if(sk) apiEl.value=sk;
+apiEl.addEventListener('input',()=>{ if(apiEl.value.trim()) localStorage.setItem('wimp_key',apiEl.value.trim()); });
+
+/* ── Upload ── */
+const zone=document.getElementById('uz');
+document.getElementById('pdfIn').addEventListener('change',async e=>{ const f=e.target.files[0]; if(f) await loadFile(f); });
+['dragenter','dragover'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove('drag');}));
+zone.addEventListener('drop',async e=>{ const f=e.dataTransfer.files[0]; if(f&&f.type==='application/pdf') await loadFile(f); });
+document.getElementById('pg').addEventListener('change',async()=>{ if(pdfFile) await renderPage(); });
+
+async function loadFile(f){
+  pdfFile=f; zone.classList.add('ok');
+  document.getElementById('ul1').textContent=f.name;
+  document.getElementById('ul2').textContent=`${(f.size/1024).toFixed(0)} KB`;
+  await renderPage(); checkReady();
+}
+async function renderPage(){
+  try{
+    const ab=await pdfFile.arrayBuffer(), pdf=await pdfjsLib.getDocument(ab).promise;
+    const pg=Math.min(parseInt(document.getElementById('pg').value)||1,pdf.numPages);
+    document.getElementById('pg').max=pdf.numPages;
+    const page=await pdf.getPage(pg);
+    const vp=page.getViewport({scale:1.8});
+    const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
+    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    fullB64=c.toDataURL('image/jpeg',0.88);
+    document.getElementById('prev').src=fullB64; document.getElementById('prev').style.display='block';
+    // Key plan crop
+    const vpH=page.getViewport({scale:3});
+    const cH=document.createElement('canvas'); cH.width=vpH.width; cH.height=vpH.height;
+    await page.render({canvasContext:cH.getContext('2d'),viewport:vpH}).promise;
+    const kW=Math.floor(cH.width*.30),kH=Math.floor(cH.height*.32);
+    const kc=document.createElement('canvas'); kc.width=kW; kc.height=kH;
+    kc.getContext('2d').drawImage(cH,cH.width-kW,cH.height-kH,kW,kH,0,0,kW,kH);
+    keyB64=kc.toDataURL('image/jpeg',0.92);
+  }catch(e){ setStat('PDF error: '+e.message,true); }
+}
+function checkReady(){ document.getElementById('goBtn').disabled=!(pdfFile&&fullB64); }
+function setStat(msg,err=false){ const el=document.getElementById('stat'); el.classList.add('on'); el.classList.toggle('err',err); el.querySelector('.spin').style.display=err?'none':'block'; document.getElementById('statTxt').textContent=msg; }
+function clearStat(){ document.getElementById('stat').classList.remove('on'); }
+
+/* ══════════════════════════════════════
+   THREE-STEP PROMPTS
+══════════════════════════════════════ */
+
+const STEP1_PROMPT=`You are reading a building floor plan blueprint.
+
+STEP 1 — CORRIDOR SKELETON ONLY. Do not look at rooms yet.
+
+Look at the Key Plan (Image 1) — the small clean building footprint diagram. Use it to identify the main building sections and their corridors.
+
+Return ONLY this JSON:
+{
+  "floor": "floor label from drawing",
+
+  "buildings": [
+    {
+      "id": "bldg1",
+      "label": "Building 1",
+      "position": "left",
+      "corridors": [
+        {
+          "id": "c1",
+          "row": "top",
+          "label": "Wing A North",
+          "length_units": 14
+        },
+        {
+          "id": "c2",
+          "row": "bottom",
+          "label": "Wing A South",
+          "length_units": 14
+        }
+      ]
+    },
+    {
+      "id": "bldg2",
+      "label": "Building 2",
+      "position": "right",
+      "corridors": [
+        {
+          "id": "c3",
+          "row": "single",
+          "label": "Main Corridor",
+          "length_units": 28
+        }
+      ]
+    }
+  ],
+
+  "overhead": {
+    "label": "Parking Garage",
+    "exists": true,
+    "above_building": "bldg2"
+  },
+
+  "street": "street name or null"
+}
+
+RULES:
+- Use the Key Plan to identify how many SEPARATE BUILDINGS there are and their left/right positions.
+- Each building has 1 or 2 corridors:
+  - 1 corridor (row: "single"): a simple linear apartment building
+  - 2 corridors (row: "top" + row: "bottom"): a building where two parallel hallways run with a courtyard/space between them
+- length_units = approximate number of apartment-widths the corridor spans
+- overhead: large structure (parking garage) sitting above one of the buildings
+- Return ONLY JSON`;
+
+const STEP2_PROMPT=`You are reading a building floor plan blueprint.
+
+STEP 2 — COUNT APARTMENT UNITS per corridor.
+
+Current skeleton:
+SKELETON_PLACEHOLDER
+
+For each corridor in each building, count:
+- outer_units: apartments on the OUTSIDE wall (north wall for "top" corridors, south wall for "bottom" corridors, both for "single" corridors split as north_units + south_units)
+- inner_units: apartments on the INSIDE wall facing the courtyard (only for "top" and "bottom" corridors)
+
+Add these fields to each corridor object and return the COMPLETE updated JSON.
+For "single" corridors use north_units and south_units instead.
+
+Look carefully at the full floor plan (Image 2) and count every apartment door opening onto each hallway.
+Return ONLY JSON.`;
+
+const STEP3_PROMPT=`You are reading a building floor plan blueprint.
+
+STEP 3 — ADD ELEVATORS, STAIRS, AMENITIES.
+
+Current map data:
+SKELETON_PLACEHOLDER
+
+For each corridor, add:
+- cores: [ { "pos": 0.0-1.0, "elements": ["stairs","elevator","elevator","stairs"] } ]
+  pos = fraction along the corridor length (0=left end, 1=right end)
+  Only include MAJOR elevator banks and stair towers (not every door)
+
+Also add at the top level:
+- amenities: [ { "label": "Pool", "kind": "outdoor" } ]
+  ONLY publicly-named spaces: pool, gym, leasing office, mail room, lounge.
+  NO mechanical rooms, roof access, utility spaces.
+
+Return the COMPLETE updated JSON.
+Return ONLY JSON.`;
+
+/* ══════════════════════════════════════
+   API CALL
+══════════════════════════════════════ */
+async function callClaude(promptText){
+  const key=apiEl.value.trim();
+  const content=[
+    {type:'text',text:'KEY PLAN (building footprint):'},
+    {type:'image',source:{type:'base64',media_type:'image/jpeg',data:keyB64.split(',')[1]}},
+    {type:'text',text:'FULL FLOOR PLAN:'},
+    {type:'image',source:{type:'base64',media_type:'image/jpeg',data:fullB64.split(',')[1]}},
+    {type:'text',text:promptText}
+  ];
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4096,messages:[{role:'user',content}]})
+  });
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message||'API error');
+  const raw=data.content?.[0]?.text||'';
+  return JSON.parse(raw.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'').trim());
+}
+
+/* ══════════════════════════════════════
+   STEP FLOW
+══════════════════════════════════════ */
+document.getElementById('goBtn').addEventListener('click', startStep1);
+document.getElementById('reBtn').addEventListener('click', startStep1);
+document.getElementById('nextStepBtn').addEventListener('click', advanceStep);
+
+async function startStep1(){
+  const key=apiEl.value.trim();
+  if(!key){ setStat('Enter API key.',true); return; }
+  if(!fullB64){ setStat('Upload PDF first.',true); return; }
+  document.getElementById('goBtn').disabled=true;
+  setStat('Step 1/3 — Finding corridors…');
+  try{
+    const d=await callClaude(STEP1_PROMPT);
+    clearStat(); currentStep=1;
+    showEditor(d, 1);
+  }catch(e){ setStat('Error: '+e.message,true); }
+  document.getElementById('goBtn').disabled=false;
+}
+
+async function advanceStep(){
+  let d;
+  try{ d=JSON.parse(document.getElementById('jsonEditor').value); }
+  catch(e){ document.getElementById('jerr').textContent='Fix JSON errors first'; document.getElementById('jerr').classList.add('on'); return; }
+
+  if(currentStep===1){
+    setStat('Step 2/3 — Counting apartment units…');
+    document.getElementById('nextStepBtn').disabled=true;
+    try{
+      const prompt=STEP2_PROMPT.replace('SKELETON_PLACEHOLDER', JSON.stringify(d, null, 2));
+      const d2=await callClaude(prompt);
+      clearStat(); currentStep=2; showEditor(d2, 2);
+    }catch(e){ setStat('Error: '+e.message,true); }
+    document.getElementById('nextStepBtn').disabled=false;
+
+  } else if(currentStep===2){
+    setStat('Step 3/3 — Adding elevators, stairs, extras…');
+    document.getElementById('nextStepBtn').disabled=true;
+    try{
+      const prompt=STEP3_PROMPT.replace('SKELETON_PLACEHOLDER', JSON.stringify(d, null, 2));
+      const d3=await callClaude(prompt);
+      clearStat(); currentStep=3; showEditor(d3, 3);
+    }catch(e){ setStat('Error: '+e.message,true); }
+    document.getElementById('nextStepBtn').disabled=false;
+
+  } else {
+    // Already at step 3 — nothing to do
+    document.getElementById('nextStepBtn').textContent='✓ Done';
+    document.getElementById('nextStepBtn').disabled=true;
+  }
+}
+
+function showEditor(d, step){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('editorWrap').classList.add('on');
+  document.getElementById('hdrTools').style.display='flex';
+
+  const json=JSON.stringify(d,null,2);
+  if(step===1) originalJson=json;
+  document.getElementById('jsonEditor').value=json;
+  lastData=d;
+
+  // Step indicators
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('sp'+i);
+    el.classList.toggle('active', i===step);
+    el.classList.toggle('done', i<step);
+  }
+
+  // Titles and hints per step
+  const titles=['','Corridors — check directions and lengths','Units — verify counts per corridor side','Cores, Extras — elevators, stairs, amenities'];
+  const hints=[
+    '',
+    'Each corridor has id, dir (H/V), length_units. Edit if wrong.',
+    'north_units / south_units added to each corridor. Fix counts if needed.',
+    'cores[]{pos, elements[]}, end_caps, amenities added. Edit freely.'
+  ];
+  const nextLabels=['','Add Units →','Add Cores →','✓ Done'];
+  document.getElementById('jtitle').textContent=`Step ${step}: ${titles[step]}`;
+  document.getElementById('jhelp').textContent=hints[step];
+  document.getElementById('nextStepBtn').textContent=nextLabels[step];
+  document.getElementById('nextStepBtn').disabled=(step>=3);
+  document.getElementById('mapTitle').textContent=document.getElementById('floorLbl').value.trim()||d.floor||'Floor Map';
+  document.getElementById('mapSub').textContent=`Step ${step}/3 — edit JSON, map updates live`;
+
+  drawMap(d);
+  document.getElementById('jerr').classList.remove('on');
+}
+
+/* ══════════════════════════════════════
+   LIVE JSON EDIT
+══════════════════════════════════════ */
+let debTimer=null;
+document.getElementById('jsonEditor').addEventListener('input',()=>{
+  clearTimeout(debTimer);
+  debTimer=setTimeout(()=>{
+    try{
+      const d=JSON.parse(document.getElementById('jsonEditor').value);
+      document.getElementById('jerr').classList.remove('on');
+      lastData=d; drawMap(d);
+    }catch(e){
+      document.getElementById('jerr').textContent='JSON: '+e.message;
+      document.getElementById('jerr').classList.add('on');
+    }
+  },250);
+});
+document.getElementById('fmtBtn').addEventListener('click',()=>{
+  try{ document.getElementById('jsonEditor').value=JSON.stringify(JSON.parse(document.getElementById('jsonEditor').value),null,2); }catch(e){}
+});
+
+/* ══════════════════════════════════════
+   RENDERER — corridor-skeleton based
+   Builds the map exactly as described:
+   1. Draw corridor skeleton
+   2. Place units along corridors
+   3. Add cores + extras
+══════════════════════════════════════ */
+function drawMap(d){
+  const F='Arial,Helvetica,sans-serif';
+
+  const UW=16, UD=26, CH=13, CE=16, DR=5;
+  const BLDG_GAP=48;   // gap between buildings
+  const COURTYARD=32;  // space between top+bottom corridors in a double-bar building
+  const PAD_X=44, PAD_Y=44;
+  const OVER_H=52, CONN_H=24, LABEL_H=20, AMEN_H=26;
+
+  const C_UNIT='#e8e9ec', C_US='#a0a4ab';
+  const C_CORR='#c8cad0', C_WALL='#3a3d47';
+  const C_CORE='#3a3d47', C_DIAM='#3a3d47';
+  const C_PARK='#ebebeb', C_PARKS='#b0b3ba';
+  const C_OUT='#eaf4ec',  C_OUTS='#8fca9a';
+  const C_AMEN='#dce8fd', C_AMENS='#7aabf7';
+
+  const corridors = d.corridors || [];
+  const overhead  = d.overhead;
+  const amens     = (d.amenities||[]).filter(a=>!/roof.?access|mechanical|electrical|janitor|utility|ahu|hvac|riser|telecom|closet/i.test(a.label||''));
+  const street    = d.street && /st\.|blvd|ave|road|street|boulevard|avenue|dr\./i.test(d.street) ? d.street : null;
+
+  if(!corridors.length){ document.getElementById('mapSvg').innerHTML='<p style="padding:24px;color:#888;font-family:sans-serif">No corridors yet — complete Step 1.</p>'; return; }
+
+  // Only render horizontal corridors for now (V support can be added later)
+  const hCorrs=corridors.filter(c=>c.dir==='H'||!c.dir);
+
+  // Compute each corridor's pixel width
+  const corrW=hCorrs.map(c=>{
+    const maxU=Math.max(c.north_units||0,c.south_units||0,c.length_units||8);
+    return maxU*UW;
+  });
+  const totalW=Math.max(...corrW, 100);
+
+  // Layout: corridors stacked vertically with H_GAP between them
+  const bandH=UD+CH+UD;
+  const hasOver=overhead?.exists || (overhead?.label);
+  const topOffset=PAD_Y+(hasOver?OVER_H+CONN_H:0);
+
+  const svgW=totalW+PAD_X*2;
+  const svgH=topOffset+hCorrs.length*(bandH+H_GAP)-H_GAP+LABEL_H+PAD_Y
+            +(amens.length?AMEN_H+8:0)+(street?18:0);
+
+  const p=[];
+  p.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`);
+  p.push(`<rect width="${svgW}" height="${svgH}" fill="#fff"/>`);
+
+  // ── Overhead structure ──
+  if(hasOver){
+    const ow=Math.round(totalW*0.6), ox=PAD_X+(totalW-ow)/2, oy=PAD_Y;
+    p.push(`<rect x="${ox}" y="${oy}" width="${ow}" height="${OVER_H}" fill="${C_PARK}" stroke="${C_PARKS}" stroke-width="1.5" rx="4"/>`);
+    for(let i=1;i<4;i++) p.push(`<line x1="${ox+8}" y1="${oy+i*OVER_H/4}" x2="${ox+ow-8}" y2="${oy+i*OVER_H/4}" stroke="${C_PARKS}" stroke-width="0.8" stroke-dasharray="5,4"/>`);
+    blkLabel(p,ox,oy,ow,OVER_H,overhead.label||'Parking Garage','#5c6370',F);
+    // Connector to first corridor
+    const cx2=ox+ow/2, cy1=oy+OVER_H, cy2=topOffset;
+    p.push(`<rect x="${cx2-9}" y="${cy1}" width="18" height="${cy2-cy1}" fill="${C_CORR}" stroke="${C_WALL}" stroke-width="1.2"/>`);
+    diam(p,cx2,cy1,DR,C_DIAM); diam(p,cx2,cy2,DR,C_DIAM);
+  }
+
+  // ── Draw each horizontal corridor band ──
+  hCorrs.forEach((cor,ci)=>{
+    const bx=PAD_X;
+    const bw=corrW[ci];
+    const by=topOffset+ci*(bandH+H_GAP);
+    const corrY=by+UD;  // top of corridor strip
+    const nN=cor.north_units||0, nS=cor.south_units||0;
+    const maxU=Math.max(nN,nS,cor.length_units||8,1);
+    const sw=bw/maxU;
+
+    // Corridor band
+    p.push(`<rect x="${bx}" y="${corrY}" width="${bw}" height="${CH}" fill="${C_CORR}"/>`);
+
+    // Corridor label (faint watermark)
+    if(cor.label) p.push(`<text x="${bx+bw/2}" y="${corrY+CH/2+1}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-family="${F}" fill="rgba(58,61,71,0.3)" font-weight="700" letter-spacing="1">${esc(cor.label.toUpperCase())}</text>`);
+
+    // ── North units ──
+    for(let j=0;j<nN;j++){
+      const ux=bx+j*sw;
+      p.push(`<rect x="${ux}" y="${by}" width="${sw}" height="${UD}" fill="${C_UNIT}" stroke="${C_US}" stroke-width="1"/>`);
+      const dw=6,dx=ux+sw/2-dw/2;
+      p.push(`<rect x="${dx}" y="${corrY-0.5}" width="${dw}" height="2" fill="#fff"/>`);
+      p.push(`<path d="M${dx} ${corrY} A${dw} ${dw} 0 0 0 ${dx+dw} ${corrY}" fill="none" stroke="${C_WALL}" stroke-width="0.8" stroke-dasharray="1.5,1"/>`);
+    }
+
+    // ── South units ──
+    for(let j=0;j<nS;j++){
+      const ux=bx+j*sw;
+      p.push(`<rect x="${ux}" y="${corrY+CH}" width="${sw}" height="${UD}" fill="${C_UNIT}" stroke="${C_US}" stroke-width="1"/>`);
+      const dw=6,dx=ux+sw/2-dw/2;
+      p.push(`<rect x="${dx}" y="${corrY+CH-0.5}" width="${dw}" height="2" fill="#fff"/>`);
+      p.push(`<path d="M${dx} ${corrY+CH} A${dw} ${dw} 0 0 1 ${dx+dw} ${corrY+CH}" fill="none" stroke="${C_WALL}" stroke-width="0.8" stroke-dasharray="1.5,1"/>`);
+    }
+
+    // ── Cores ──
+    (cor.cores||[]).forEach(co=>{
+      const els=co.elements||[];
+      const cw=Math.max(els.length*CE,16);
+      const cx2=bx+(co.pos||.5)*bw;
+      const coreY=by, coreH=bandH;
+      p.push(`<rect x="${cx2-cw/2}" y="${coreY}" width="${cw}" height="${coreH}" fill="${C_CORE}"/>`);
+      els.forEach((el,k)=>{
+        const ex=cx2-cw/2+k*CE,ew=CE,mcx=ex+ew/2,mcy=coreY+coreH/2;
+        if(k>0) p.push(`<line x1="${ex}" y1="${coreY+4}" x2="${ex}" y2="${coreY+coreH-4}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`);
+        if(el==='elevator'){
+          const bw2=ew*.7,bh2=coreH*.42,bx2=mcx-bw2/2,by2=mcy-bh2/2;
+          p.push(`<rect x="${bx2}" y="${by2}" width="${bw2}" height="${bh2}" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.3)" stroke-width="1" rx="1"/>`);
+          p.push(`<polyline points="${mcx-3},${mcy-3} ${mcx},${mcy-6} ${mcx+3},${mcy-3}" fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>`);
+          p.push(`<polyline points="${mcx-3},${mcy+3} ${mcx},${mcy+6} ${mcx+3},${mcy+3}" fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>`);
+        }else{
+          const sw2=ew*.6,sh2=coreH*.5,stx=mcx-sw2/2,sty=mcy-sh2/2;
+          let dd=`M${stx} ${sty+sh2}`;
+          for(let s=0;s<4;s++){const lx=stx+(s/4)*sw2,ly=sty+(1-s/4)*sh2;dd+=` L${lx} ${ly} L${lx+sw2/4} ${ly}`;}
+          p.push(`<path d="${dd}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2"/>`);
+        }
+      });
+      diam(p,cx2-cw/2,corrY+CH/2,DR,C_DIAM);
+      diam(p,cx2+cw/2,corrY+CH/2,DR,C_DIAM);
+    });
+
+    // ── End caps ──
+    (cor.end_caps||[]).forEach(ec=>{
+      const ex=ec.side==='start'?bx:bx+bw-CE;
+      p.push(`<rect x="${ex}" y="${by}" width="${CE}" height="${bandH}" fill="${C_CORE}"/>`);
+      const mcx=ex+CE/2,mcy=by+bandH/2;
+      if(ec.kind==='elevator'){
+        p.push(`<polyline points="${mcx-3},${mcy-3} ${mcx},${mcy-6} ${mcx+3},${mcy-3}" fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>`);
+        p.push(`<polyline points="${mcx-3},${mcy+3} ${mcx},${mcy+6} ${mcx+3},${mcy+3}" fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>`);
+      }else{
+        const sw2=CE*.55,sh2=bandH*.45,stx=mcx-sw2/2,sty=mcy-sh2/2;
+        let dd=`M${stx} ${sty+sh2}`;
+        for(let s=0;s<3;s++){const lx=stx+(s/3)*sw2,ly=sty+(1-s/3)*sh2;dd+=` L${lx} ${ly} L${lx+sw2/3} ${ly}`;}
+        p.push(`<path d="${dd}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2"/>`);
+      }
+      diam(p,ec.side==='start'?bx:bx+bw,corrY+CH/2,DR,C_DIAM);
+    });
+
+    // Outer walls + corridor lines
+    p.push(`<rect x="${bx}" y="${by}" width="${bw}" height="${bandH}" fill="none" stroke="${C_WALL}" stroke-width="2"/>`);
+    p.push(`<line x1="${bx}" y1="${corrY}" x2="${bx+bw}" y2="${corrY}" stroke="${C_WALL}" stroke-width="1.2"/>`);
+    p.push(`<line x1="${bx}" y1="${corrY+CH}" x2="${bx+bw}" y2="${corrY+CH}" stroke="${C_WALL}" stroke-width="1.2"/>`);
+    diam(p,bx,corrY+CH/2,DR,C_DIAM);
+    diam(p,bx+bw,corrY+CH/2,DR,C_DIAM);
+    for(let j=5;j<maxU;j+=5) diam(p,bx+j*sw,corrY+CH/2,DR-1,C_DIAM);
+  });
+
+  // ── Amenity strip ──
+  const lastBandBot=topOffset+hCorrs.length*(bandH+H_GAP)-H_GAP+bandH;
+  if(amens.length){
+    const stripY=lastBandBot+LABEL_H;
+    const aw=Math.min(100,Math.floor(totalW/amens.length));
+    amens.forEach((am,i)=>{
+      const ax=PAD_X+i*aw;
+      const fill=am.kind==='outdoor'?C_OUT:C_AMEN, stroke=am.kind==='outdoor'?C_OUTS:C_AMENS;
+      p.push(`<rect x="${ax+2}" y="${stripY}" width="${aw-4}" height="${AMEN_H}" fill="${fill}" stroke="${stroke}" stroke-width="1.2" rx="4"/>`);
+      p.push(`<text x="${ax+aw/2}" y="${stripY+AMEN_H/2+1}" text-anchor="middle" dominant-baseline="middle" font-size="9" font-family="${F}" fill="#374151" font-weight="600">${esc(am.label||'')}</text>`);
+    });
+  }
+
+  if(street) p.push(`<text x="${svgW/2}" y="${svgH-4}" text-anchor="middle" font-size="11" font-family="${F}" fill="${C_WALL}" font-weight="700">${esc(street)}</text>`);
+  p.push('</svg>');
+  document.getElementById('mapSvg').innerHTML=p.join('\n');
+}
+
+function blkLabel(p,bx,by,bw,bh,text,color,F){
+  const lines=text.split(/\s+/),lh=13,startY=by+bh/2-(lines.length-1)*lh/2;
+  lines.forEach((ln,i)=>p.push(`<text x="${bx+bw/2}" y="${startY+i*lh}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-family="${F}" fill="${color}" font-weight="600">${esc(ln)}</text>`));
+}
+function diam(p,cx,cy,r,f){ p.push(`<polygon points="${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}" fill="${f}"/>`); }
+
+/* ── Downloads ── */
+function getSvg(){ return document.querySelector('#mapSvg svg'); }
+function fname(ext){ return ((document.getElementById('floorLbl').value||lastData?.floor||'floor-map').replace(/\s+/g,'-').toLowerCase())+'.'+ext; }
+function dlSvgFn(){
+  const el=getSvg(); if(!el) return;
+  const xml='<?xml version="1.0" encoding="utf-8"?>\n'+new XMLSerializer().serializeToString(el);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml;charset=utf-8'})); a.download=fname('svg');
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function dlPngFn(){
+  const el=getSvg(); if(!el) return;
+  const w=+el.getAttribute('width')||600,h=+el.getAttribute('height')||300;
+  const src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(el))));
+  const img=new Image();
+  img.onload=()=>{
+    const cv=document.createElement('canvas'); cv.width=w*2; cv.height=h*2;
+    const ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.drawImage(img,0,0,cv.width,cv.height);
+    try{ const a=document.createElement('a'); a.download=fname('png'); a.href=cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+    catch{ dlSvgFn(); }
+  };
+  img.onerror=()=>dlSvgFn();
+  img.src=src;
+}
+document.getElementById('dlSvg').addEventListener('click',dlSvgFn);
+document.getElementById('dlPng').addEventListener('click',dlPngFn);
+document.getElementById('dlSvg2').addEventListener('click',dlSvgFn);
+document.getElementById('dlPng2').addEventListener('click',dlPngFn);
+document.getElementById('reBtn').addEventListener('click',startStep1);
+document.getElementById('reBtn2').addEventListener('click',startStep1);
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>

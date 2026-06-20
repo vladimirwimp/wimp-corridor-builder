@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>WIMP Map Preview</title>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #f0f0f0; font-family: -apple-system, sans-serif; }
+
+    /* ── Phone shell ── */
+    #shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      background: #fff;
+      position: relative;
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      background: #fff;
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    #topbar h2 { font-size: 15px; font-weight: 600; color: #1a1a2e; flex: 1; }
+    .floor-btn {
+      background: #f5f5f5;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #555;
+      cursor: pointer;
+    }
+    .floor-btn.active { background: #1a3a5c; color: #fff; }
+
+    /* ── Map ── */
+    #map { flex: 1; position: relative; }
+
+    /* ── Route controls (top right of map) ── */
+    #map-controls {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .map-ctrl-btn {
+      background: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e63946;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .map-ctrl-btn span { font-size: 16px; }
+
+    /* ── Footer instruction bar ── */
+    #footer {
+      background: #fff;
+      border-top: 1px solid #f0f0f0;
+      padding: 14px 16px 20px;
+      flex-shrink: 0;
+    }
+    #instruction {
+      font-size: 16px;
+      color: #555;
+      text-align: center;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    #instruction strong { color: #1a1a2e; }
+    #nav-buttons { display: flex; gap: 10px; }
+    .nav-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-btn.back { background: #fff; border: 1.5px solid #ddd; color: #555; }
+    .nav-btn.next { background: #1a3a5c; color: #fff; }
+
+    /* Turn marker */
+    .turn-marker-wrapper {
+      width: 44px; height: 44px;
+    }
+    .turn-marker {
+      width: 44px; height: 44px;
+      background: #fff;
+      border: 3px solid #2979FF;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+<div id="shell">
+  <div id="topbar">
+    <h2>Town Westshore · Floor 4</h2>
+    <button class="floor-btn" onclick="setStep(0)">Floor 3</button>
+    <button class="floor-btn active" onclick="setStep(0)">Floor 4</button>
+  </div>
+
+  <div id="map">
+    <div id="map-controls">
+      <button class="map-ctrl-btn"><span>❓</span> Lost</button>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div id="instruction">Head to the <strong>elevator</strong> on your <strong>right</strong></div>
+    <div id="nav-buttons">
+      <button class="nav-btn back" onclick="prevStep()">« Back</button>
+      <button class="nav-btn next" onclick="nextStep()">Next »</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Sample floor plan data (matches corridor builder export format) ──
+// A simplified version of a double-loaded corridor floor
+const FLOOR_DATA = {
+  corridors: [
+    // Main horizontal corridor
+    { id: 'COR-1', start: [-7, 0], end: [7, 0], width: 0.7 },
+    // Left vertical stub (elevator lobby)
+    { id: 'COR-2', start: [-5.5, 0], end: [-5.5, -2], width: 0.7 },
+    // Right vertical stub
+    { id: 'COR-3', start: [5.5, 0], end: [5.5, -2], width: 0.7 },
+  ],
+  units: [
+    // Top side (above main corridor)
+    { id: 'U-401', name: '401', x: -6,   y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-403', name: '403', x: -4.9, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-405', name: '405', x: -3.8, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-407', name: '407', x: -2.7, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-409', name: '409', x: -1.6, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-411', name: '411', x: -0.5, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-413', name: '413', x:  0.6, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-415', name: '415', x:  1.7, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-417', name: '417', x:  2.8, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-419', name: '419', x:  3.9, y:  1.8, w: 1.1, d: 1.5 },
+    { id: 'U-421', name: '421', x:  5.0, y:  1.8, w: 1.1, d: 1.5 },
+    // Bottom side (below main corridor)
+    { id: 'U-402', name: '402', x: -6,   y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-404', name: '404', x: -4.9, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-406', name: '406', x: -3.8, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-408', name: '408', x: -2.7, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-410', name: '410', x: -1.6, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-412', name: '412', x: -0.5, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-414', name: '414', x:  0.6, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-416', name: '416', x:  1.7, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-418', name: '418', x:  2.8, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-420', name: '420', x:  3.9, y: -1.8, w: 1.1, d: 1.5 },
+    { id: 'U-422', name: '422', x:  5.0, y: -1.8, w: 1.1, d: 1.5 },
+    // Corner units (at vertical stubs)
+    { id: 'U-429', name: '429', x: -5.5, y: -3.2, w: 1.8, d: 1.5 },
+    { id: 'U-431', name: '431', x:  5.5, y: -3.2, w: 1.8, d: 1.5 },
+  ],
+  elevators: [
+    { id: 'EV-1', x: -5.5, y: -1.35 },
+    { id: 'EV-2', x:  5.5, y: -1.35 },
+  ],
+  stairs: [
+    { id: 'ST-1', x: -7.4, y: 0 },
+    { id: 'ST-2', x:  7.4, y: 0 },
+  ]
+};
+
+// ── Nav steps ──
+const STEPS = [
+  { instruction: 'Head to the <strong>elevator</strong> on your <strong>right</strong>', turn: [-5.5, 0], arrow: '↗' },
+  { instruction: 'Turn <strong>left</strong>, near <strong>429</strong>', turn: [-5.5, -1.2], arrow: '←' },
+  { instruction: 'Take the <strong>elevator</strong> to <strong>floor 3</strong>', turn: [-5.5, -1.35], arrow: '🛗' },
+];
+
+let stepIndex = 0;
+
+// ── Route path ──
+const ROUTE = [
+  [2.2, 0], [0, 0], [-4, 0], [-5.5, 0], [-5.5, -1.35]
+];
+
+// ── Helpers ──
+function corridorPolygon(c) {
+  const dx = c.end[0] - c.start[0], dy = c.end[1] - c.start[1];
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const ux = dx/len, uy = dy/len;
+  const lx = -uy * c.width/2, ly = ux * c.width/2;
+  const [sx, sy] = c.start, [ex, ey] = c.end;
+  return [[sx+lx, sy+ly],[ex+lx, ey+ly],[ex-lx, ey-ly],[sx-lx, sy-ly],[sx+lx, sy+ly]];
+}
+
+function unitPolygon(u) {
+  const hw = u.w / 2, hd = u.d / 2;
+  return [[u.x-hw, u.y+hd],[u.x+hw, u.y+hd],[u.x+hw, u.y-hd],[u.x-hw, u.y-hd],[u.x-hw, u.y+hd]];
+}
+
+// ── Map ──
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {},
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f5f5f5' } }],
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  },
+  center: [0, 0],
+  zoom: 5.2,
+  renderWorldCopies: false,
+  pitchWithRotate: false,
+  dragRotate: false,
+  attributionControl: false,
+});
+
+const NUM_DASHES = 6, DASH_WIDTH = 0.1, EDGE_BLUR = 0.002;
+const DIM = 'rgba(41, 121, 255, 0.2)', BRIGHT = '#2979FF', CYCLE_MS = 3000;
+let animFrame = null;
+
+function buildGradient(t) {
+  const stops = [{ pos: 0, color: DIM, b: false }, { pos: 1, color: DIM, b: false }];
+  for (let d = 0; d < NUM_DASHES; d++) {
+    const s = (t + d / NUM_DASHES) % 1, e = (s + DASH_WIDTH) % 1;
+    if (s < e) {
+      stops.push({ pos: Math.max(0, s - EDGE_BLUR), color: DIM, b: false });
+      stops.push({ pos: s, color: BRIGHT, b: true });
+      stops.push({ pos: e, color: BRIGHT, b: true });
+      stops.push({ pos: Math.min(1, e + EDGE_BLUR), color: DIM, b: false });
+    } else {
+      stops.push({ pos: Math.max(0, s - EDGE_BLUR), color: DIM, b: false });
+      stops.push({ pos: s, color: BRIGHT, b: true });
+      stops.push({ pos: 1, color: BRIGHT, b: true });
+      stops.push({ pos: 0, color: BRIGHT, b: true });
+      stops.push({ pos: e, color: BRIGHT, b: true });
+      stops.push({ pos: Math.min(1, e + EDGE_BLUR), color: DIM, b: false });
+    }
+  }
+  stops.sort((a, b) => a.pos - b.pos || (b.b ? 1 : 0) - (a.b ? 1 : 0));
+  const deduped = [];
+  let last = -1;
+  for (const s of stops) {
+    if (s.pos - last > 0.0001) { deduped.push(s); last = s.pos; }
+  }
+  const expr = ['interpolate', ['linear'], ['line-progress']];
+  for (const { pos, color } of deduped) expr.push(pos, color);
+  return expr;
+}
+
+function startAnimation() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  let startTs = null;
+  function animate(ts) {
+    if (!startTs) startTs = ts;
+    const t = ((ts - startTs) % CYCLE_MS) / CYCLE_MS;
+    if (map.getLayer('route')) {
+      map.setPaintProperty('route', 'line-gradient', buildGradient(t));
+    }
+    animFrame = requestAnimationFrame(animate);
+  }
+  animFrame = requestAnimationFrame(animate);
+}
+
+map.on('load', () => {
+  // ── Corridor fills ──
+  const corridorFeatures = FLOOR_DATA.corridors.map(c => ({
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [corridorPolygon(c)] },
+    properties: { id: c.id },
+  }));
+
+  // ── Unit box features ──
+  const unitFeatures = FLOOR_DATA.units.map(u => ({
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [unitPolygon(u)] },
+    properties: { id: u.id, name: u.name },
+  }));
+
+  // ── Unit label points ──
+  const labelFeatures = FLOOR_DATA.units.map(u => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [u.x, u.y] },
+    properties: { name: u.name },
+  }));
+
+  // Corridors
+  map.addSource('corridors', { type: 'geojson', data: { type: 'FeatureCollection', features: corridorFeatures } });
+  map.addLayer({ id: 'corridors-fill', type: 'fill', source: 'corridors',
+    paint: { 'fill-color': '#e8e8e8', 'fill-opacity': 1 } });
+  map.addLayer({ id: 'corridors-stroke', type: 'line', source: 'corridors',
+    paint: { 'line-color': '#cccccc', 'line-width': 1 } });
+
+  // Units
+  map.addSource('units', { type: 'geojson', data: { type: 'FeatureCollection', features: unitFeatures } });
+  map.addLayer({ id: 'units-fill', type: 'fill', source: 'units',
+    paint: { 'fill-color': '#ffffff', 'fill-opacity': 1 } });
+  map.addLayer({ id: 'units-stroke', type: 'line', source: 'units',
+    paint: { 'line-color': '#bbbbbb', 'line-width': 1 } });
+
+  // Unit labels
+  map.addSource('labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
+  map.addLayer({ id: 'unit-labels', type: 'symbol', source: 'labels',
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': ['Noto Sans Bold'],
+      'text-size': 11,
+      'text-anchor': 'center',
+    },
+    paint: { 'text-color': '#333', 'text-halo-color': '#fff', 'text-halo-width': 1 },
+  });
+
+  // Elevator icons
+  const evFeatures = FLOOR_DATA.elevators.map(e => ({
+    type: 'Feature', geometry: { type: 'Point', coordinates: [e.x, e.y] }, properties: { id: e.id }
+  }));
+  map.addSource('elevators', { type: 'geojson', data: { type: 'FeatureCollection', features: evFeatures } });
+  map.addLayer({ id: 'elevator-circles', type: 'circle', source: 'elevators',
+    paint: { 'circle-radius': 10, 'circle-color': '#fff', 'circle-stroke-color': '#888', 'circle-stroke-width': 1.5 } });
+  map.addLayer({ id: 'elevator-labels', type: 'symbol', source: 'elevators',
+    layout: { 'text-field': '⊡', 'text-size': 13, 'text-font': ['Noto Sans Regular'] },
+    paint: { 'text-color': '#444' },
+  });
+
+  // Stair icons
+  const stFeatures = FLOOR_DATA.stairs.map(s => ({
+    type: 'Feature', geometry: { type: 'Point', coordinates: [s.x, s.y] }, properties: {}
+  }));
+  map.addSource('stairs', { type: 'geojson', data: { type: 'FeatureCollection', features: stFeatures } });
+  map.addLayer({ id: 'stair-circles', type: 'circle', source: 'stairs',
+    paint: { 'circle-radius': 8, 'circle-color': '#fff', 'circle-stroke-color': '#999', 'circle-stroke-width': 1.5 } });
+
+  // Route line
+  map.addSource('route', { type: 'geojson', lineMetrics: true,
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: ROUTE }, properties: {} } });
+  map.addLayer({ id: 'route', type: 'line', source: 'route',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': 5, 'line-gradient': buildGradient(0) },
+  });
+
+  // Start dot
+  map.addSource('startdot', { type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: ROUTE[0] }, properties: {} } });
+  map.addLayer({ id: 'startdot', type: 'circle', source: 'startdot',
+    paint: { 'circle-radius': 8, 'circle-color': '#2979FF', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+
+  // Turn marker source (updated per step)
+  map.addSource('turn', { type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: STEPS[0].turn }, properties: {} } });
+  map.addLayer({ id: 'turn-circle', type: 'circle', source: 'turn',
+    paint: { 'circle-radius': 20, 'circle-color': '#fff', 'circle-stroke-color': '#2979FF', 'circle-stroke-width': 3 } });
+  map.addLayer({ id: 'turn-label', type: 'symbol', source: 'turn',
+    layout: { 'text-field': STEPS[0].arrow, 'text-size': 18, 'text-font': ['Noto Sans Regular'] },
+    paint: { 'text-color': '#1a1a2e' },
+  });
+
+  startAnimation();
+  setStep(0);
+});
+
+function setStep(i) {
+  stepIndex = Math.max(0, Math.min(STEPS.length - 1, i));
+  const step = STEPS[stepIndex];
+  document.getElementById('instruction').innerHTML = step.instruction;
+
+  if (map.getSource('turn')) {
+    map.getSource('turn').setData({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: step.turn },
+      properties: {}
+    });
+    if (map.getLayer('turn-label')) {
+      map.setLayoutProperty('turn-label', 'text-field', step.arrow);
+    }
+  }
+
+  // Fly to frame the turn marker
+  map.flyTo({ center: step.turn, zoom: 5.8, duration: 600, essential: true });
+}
+
+function nextStep() { setStep(stepIndex + 1); }
+function prevStep() { setStep(stepIndex - 1); }
+</script>
+</body>
+</html>

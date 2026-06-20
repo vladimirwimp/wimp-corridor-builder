@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>WIMP App Preview</title>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%; overflow: hidden;
+      background: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    }
+
+    /* ── Centering wrapper ── */
+    #outer {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; padding: 20px;
+    }
+
+    /* ── Phone shell ── */
+    #shell {
+      display: flex; flex-direction: column;
+      width: 390px; height: min(844px, calc(100vh - 40px));
+      background: #faf8f5;
+      border-radius: 44px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08),
+        0 30px 80px rgba(0,0,0,0.6),
+        inset 0 0 0 1px rgba(255,255,255,0.06);
+      position: relative;
+    }
+
+    /* ── Status bar ── */
+    #status-bar {
+      background: #faf8f5;
+      padding: 14px 28px 4px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .sb-time { font-size: 15px; font-weight: 700; color: #1a1a1a; letter-spacing: -0.3px; }
+    .sb-icons { display: flex; gap: 5px; align-items: center; }
+    .sb-icon { width: 16px; height: 10px; background: #1a1a1a; border-radius: 2px; opacity: 0.8; }
+    .sb-icon.wifi { clip-path: polygon(50% 100%, 0 30%, 100% 30%); background: transparent;
+      border-bottom: 2px solid #1a1a1a; width: 14px; }
+    .sb-battery {
+      width: 24px; height: 12px; border: 1.5px solid #1a1a1a; border-radius: 3px;
+      position: relative; opacity: 0.8;
+    }
+    .sb-battery::after {
+      content: ''; position: absolute; right: -5px; top: 3px;
+      width: 3px; height: 5px; background: #1a1a1a; border-radius: 0 2px 2px 0;
+    }
+    .sb-battery-fill {
+      position: absolute; inset: 2px; right: 5px; background: #1a1a1a; border-radius: 1px;
+    }
+
+    /* ── Nav header ── */
+    #nav-header {
+      background: #faf8f5;
+      padding: 8px 20px 12px;
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    #nav-header h2 {
+      font-size: 15px; font-weight: 600; color: #1a1a1a;
+      letter-spacing: -0.2px; flex: 1;
+    }
+    #floor-pills { display: flex; gap: 6px; }
+    .floor-pill {
+      padding: 5px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+      border: 1.5px solid #e0ddd8; color: #888; cursor: pointer;
+      background: transparent; transition: all 0.15s;
+    }
+    .floor-pill.active {
+      background: #2979FF; color: #fff; border-color: #2979FF;
+      box-shadow: 0 2px 8px rgba(41,121,255,0.35);
+    }
+
+    /* ── Map ── */
+    #map-container { flex: 1; position: relative; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+
+    /* Overlay buttons */
+    #lost-btn {
+      position: absolute; top: 14px; right: 14px; z-index: 5;
+      background: #fff; border: none; border-radius: 14px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; color: #e63946;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.1); cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Footer ── */
+    #footer {
+      background: #faf8f5;
+      padding: 16px 20px 32px;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      flex-shrink: 0;
+    }
+    #step-instruction {
+      font-size: 17px; color: #666; text-align: center;
+      margin-bottom: 16px; line-height: 1.45;
+      min-height: 48px; display: flex; align-items: center; justify-content: center;
+      letter-spacing: -0.1px;
+    }
+    #step-instruction strong { color: #1a1a1a; font-weight: 700; }
+    #nav-btns { display: flex; gap: 10px; }
+    .nav-btn {
+      flex: 1; padding: 16px; border-radius: 16px;
+      border: none; font-size: 16px; font-weight: 600; cursor: pointer;
+      letter-spacing: -0.2px; transition: all 0.1s;
+    }
+    .nav-btn.back {
+      background: #fff; border: 1.5px solid #e0ddd8; color: #555;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .nav-btn.next {
+      background: #2979FF; color: #fff;
+      box-shadow: 0 4px 16px rgba(41,121,255,0.4);
+    }
+    .nav-btn:active { transform: scale(0.98); }
+
+    /* ── No data ── */
+    #no-data {
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%;
+      color: #aaa; font-size: 14px; text-align: center; padding: 40px;
+    }
+    #no-data p { margin-top: 14px; line-height: 1.7; color: #888; }
+  </style>
+</head>
+<body>
+<div id="outer">
+<div id="shell">
+
+  <div id="status-bar">
+    <span class="sb-time" id="clock">10:22</span>
+    <div class="sb-icons">
+      <div class="sb-icon wifi"></div>
+      <div class="sb-battery"><div class="sb-battery-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="nav-header">
+    <h2 id="prop-title">Floor Plan</h2>
+    <div id="floor-pills"></div>
+  </div>
+
+  <div id="map-container">
+    <div id="map"></div>
+    <button id="lost-btn">📍 Lost</button>
+    <div id="no-data">
+      <div style="font-size:52px">🗺️</div>
+      <p>No floor plan data found.<br>Build a map in the <strong>Corridor Builder</strong><br>then click <strong>▶ App Preview</strong>.</p>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div id="step-instruction">Navigating your floor plan</div>
+    <div id="nav-btns">
+      <button class="nav-btn back" onclick="prevStep()">« Back</button>
+      <button class="nav-btn next" onclick="nextStep()">Next »</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+// ── Load data ──
+let previewData = null;
+try { const r = localStorage.getItem('wimp_preview'); if (r) previewData = JSON.parse(r); } catch(e){}
+
+let activeFloorIdx = 0;
+let stepIndex = 0;
+let steps = [];
+
+// ── MapLibre ──
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8, sources: {},
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f5f2ee' } }],
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  },
+  center: [0,0], zoom: 4,
+  renderWorldCopies: false, pitchWithRotate: false,
+  dragRotate: false, attributionControl: false,
+});
+
+// ── Helpers ──
+function emptyFC() { return { type:'FeatureCollection', features:[] }; }
+
+function corridorPolygon(c) {
+  const dx = c.end[0]-c.start[0], dy = c.end[1]-c.start[1];
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if (len===0) return [];
+  const ux=dx/len, uy=dy/len;
+  const lx=-uy*c.width/2, ly=ux*c.width/2;
+  const [sx,sy]=c.start, [ex,ey]=c.end;
+  return [[sx+lx,sy+ly],[ex+lx,ey+ly],[ex-lx,ey-ly],[sx-lx,sy-ly],[sx+lx,sy+ly]];
+}
+
+function getBounds(floor) {
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  const push = (x,y) => { minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y); };
+  for (const c of (floor.corridors||[])) { push(...c.start); push(...c.end); }
+  for (const n of (floor.nodes||[])) {
+    if (n.coordinates) push(...n.coordinates);
+    if (n.box) for (const pt of n.box) push(...pt);
+  }
+  if (!isFinite(minX)) return null;
+  const padX = (maxX-minX)*0.15 + 1.5;
+  const padY = (maxY-minY)*0.15 + 1.5;
+  return [[minX-padX, minY-padY],[maxX+padX, maxY+padY]];
+}
+
+function buildFloorGeoJSON(floor) {
+  const corFeatures = (floor.corridors||[]).map(c => {
+    const p = corridorPolygon(c);
+    return p.length ? { type:'Feature', geometry:{type:'Polygon',coordinates:[p]}, properties:{id:c.id} } : null;
+  }).filter(Boolean);
+
+  const boxFeatures=[], labelFeatures=[], shaftFeatures=[];
+  for (const n of (floor.nodes||[])) {
+    if ((n.type==='unit'||n.type==='amenity') && n.box?.length) {
+      boxFeatures.push({ type:'Feature', geometry:{type:'Polygon',coordinates:[n.box]}, properties:{id:n.id,name:n.name||''} });
+      labelFeatures.push({ type:'Feature', geometry:{type:'Point',coordinates:n.coordinates}, properties:{name:n.name||''} });
+    }
+    if (['elevator','stairs','escalator'].includes(n.type)) {
+      shaftFeatures.push({ type:'Feature', geometry:{type:'Point',coordinates:n.coordinates}, properties:{type:n.type} });
+    }
+  }
+  return { corFeatures, boxFeatures, labelFeatures, shaftFeatures };
+}
+
+// ── Animated route ──
+const CYCLE_MS=3000, NUM_DASHES=6, DASH_W=0.12, BLUR=0.002;
+const DIM='rgba(41,121,255,0.15)', BRIGHT='#2979FF';
+let animFrame=null;
+
+function buildGrad(t) {
+  const stops=[{p:0,c:DIM,b:false},{p:1,c:DIM,b:false}];
+  for (let d=0;d<NUM_DASHES;d++) {
+    const s=(t+d/NUM_DASHES)%1, e=(s+DASH_W)%1;
+    if (s<e) {
+      stops.push({p:Math.max(0,s-BLUR),c:DIM,b:false},{p:s,c:BRIGHT,b:true},{p:e,c:BRIGHT,b:true},{p:Math.min(1,e+BLUR),c:DIM,b:false});
+    } else {
+      stops.push({p:Math.max(0,s-BLUR),c:DIM,b:false},{p:s,c:BRIGHT,b:true},{p:1,c:BRIGHT,b:true},{p:0,c:BRIGHT,b:true},{p:e,c:BRIGHT,b:true},{p:Math.min(1,e+BLUR),c:DIM,b:false});
+    }
+  }
+  stops.sort((a,b)=>a.p-b.p||(b.b?1:0)-(a.b?1:0));
+  const d=[]; let last=-1;
+  for (const s of stops) { if (s.p-last>0.0001) { d.push(s); last=s.p; } }
+  const e=['interpolate',['linear'],['line-progress']];
+  for (const {p,c} of d) e.push(p,c);
+  return e;
+}
+
+function startAnim() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  let t0=null;
+  (function tick(ts) {
+    if (!t0) t0=ts;
+    const t=((ts-t0)%CYCLE_MS)/CYCLE_MS;
+    if (map.getLayer('route-line')) map.setPaintProperty('route-line','line-gradient',buildGrad(t));
+    animFrame=requestAnimationFrame(tick);
+  })();
+}
+
+// ── Demo route through junctions ──
+function buildRoute(floor) {
+  const junctions = (floor.nodes||[])
+    .filter(n=>n.type==='junction')
+    .sort((a,b)=>a.coordinates[0]-b.coordinates[0]);
+  if (junctions.length<2) return [];
+  const step = Math.max(1, Math.floor(junctions.length/10));
+  const pts=[];
+  for (let i=0;i<junctions.length;i+=step) pts.push(junctions[i].coordinates);
+  if (pts.length<2) return junctions.slice(0,2).map(j=>j.coordinates);
+  return pts;
+}
+
+function buildSteps(route, floor) {
+  if (route.length<2) return [{text:'Navigating your floor plan',pt:route[0]||[0,0]}];
+  const units=(floor.nodes||[]).filter(n=>n.type==='unit'&&n.name);
+  const steps=[];
+  for (let i=0;i<route.length-1;i++) {
+    const [ax,ay]=route[i],[bx,by]=route[i+1];
+    const dx=bx-ax,dy=by-ay;
+    const dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'up':'down');
+    const mx=(ax+bx)/2,my=(ay+by)/2;
+    let near=null,nearD=Infinity;
+    for (const u of units) {
+      const d=Math.hypot(u.coordinates[0]-mx,u.coordinates[1]-my);
+      if (d<nearD){nearD=d;near=u;}
+    }
+    const nearStr=near&&nearD<3?`, near <strong>${near.name}</strong>`:'';
+    steps.push({text:i===0?`Head <strong>${dir}</strong>${nearStr}`:`Continue <strong>${dir}</strong>${nearStr}`,pt:route[i]});
+  }
+  steps.push({text:`You have <strong>arrived</strong> 🎉`,pt:route[route.length-1]});
+  return steps;
+}
+
+// ── Render floor ──
+function renderFloor(idx) {
+  if (!previewData) return;
+  const floor=previewData.floors[idx];
+  if (!floor) return;
+
+  const {corFeatures,boxFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
+
+  map.getSource('corridors')?.setData({type:'FeatureCollection',features:corFeatures});
+  map.getSource('unit-boxes')?.setData({type:'FeatureCollection',features:boxFeatures});
+  map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
+  map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
+
+  const route=buildRoute(floor);
+  if (route.length>=2) {
+    map.getSource('route')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:route},properties:{}});
+    map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:route[0]},properties:{}});
+    map.getSource('end-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:route[route.length-1]},properties:{}});
+  }
+
+  steps=buildSteps(route,floor);
+  stepIndex=0;
+  updateStep();
+
+  // Fit after sources settle
+  const bounds=getBounds(floor);
+  if (bounds) {
+    setTimeout(()=>map.fitBounds(bounds,{padding:{top:50,bottom:50,left:30,right:30},duration:500}),300);
+  }
+}
+
+function updateStep() {
+  const s=steps[stepIndex];
+  if (!s) return;
+  document.getElementById('step-instruction').innerHTML=s.text;
+  map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:s.pt},properties:{}});
+  map.easeTo({center:s.pt,duration:500});
+}
+
+function nextStep(){if(stepIndex<steps.length-1){stepIndex++;updateStep();}}
+function prevStep(){if(stepIndex>0){stepIndex--;updateStep();}}
+
+// ── Floor pills ──
+function renderPills() {
+  if (!previewData) return;
+  const c=document.getElementById('floor-pills');
+  c.innerHTML='';
+  previewData.floors.forEach((f,i)=>{
+    const btn=document.createElement('button');
+    btn.className='floor-pill'+(i===activeFloorIdx?' active':'');
+    btn.textContent=f.name||`Floor ${f.number}`;
+    btn.onclick=()=>{activeFloorIdx=i;renderPills();renderFloor(i);};
+    c.appendChild(btn);
+  });
+}
+
+// ── Map load ──
+map.on('load',()=>{
+  if (!previewData) {
+    document.getElementById('no-data').style.display='flex';
+    document.getElementById('map').style.display='none';
+    return;
+  }
+
+  document.getElementById('prop-title').textContent=
+    (previewData.propertyName||'Preview')+' · Floor Plan';
+
+  // Sources
+  map.addSource('corridors',  {type:'geojson',data:emptyFC()});
+  map.addSource('unit-boxes', {type:'geojson',data:emptyFC()});
+  map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
+  map.addSource('shafts',     {type:'geojson',data:emptyFC()});
+  map.addSource('route',      {type:'geojson',lineMetrics:true,data:emptyFC()});
+  map.addSource('turn-pt',    {type:'geojson',data:emptyFC()});
+  map.addSource('end-pt',     {type:'geojson',data:emptyFC()});
+
+  // Corridor fills — medium warm grey (clearly visible against ivory bg)
+  map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
+    paint:{'fill-color':'#c8c3ba','fill-opacity':1}});
+  map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
+    paint:{'line-color':'#b0aba2','line-width':1}});
+
+  // Unit boxes — white with warm hairline border
+  map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
+    paint:{'fill-color':'#ffffff','fill-opacity':1}});
+  map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
+    paint:{'line-color':'#d0cbc4','line-width':0.75}});
+
+  // Route
+  map.addLayer({id:'route-line',type:'line',source:'route',
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-width':5,'line-gradient':buildGrad(0)}});
+
+  // End dot (destination)
+  map.addLayer({id:'end-dot',type:'circle',source:'end-pt',
+    paint:{'circle-radius':8,'circle-color':'#2979FF',
+      'circle-stroke-color':'#fff','circle-stroke-width':2.5,
+      'circle-opacity':0.9}});
+
+  // Turn ring
+  map.addLayer({id:'turn-ring',type:'circle',source:'turn-pt',
+    paint:{'circle-radius':22,'circle-color':'#fff',
+      'circle-stroke-color':'#2979FF','circle-stroke-width':3,
+      'circle-opacity':0.95,
+      'circle-stroke-opacity':1}});
+
+  // Shaft icons
+  map.addLayer({id:'shaft-bg',type:'circle',source:'shafts',
+    paint:{'circle-radius':13,'circle-color':'#fff',
+      'circle-stroke-color':'#c0bbb4','circle-stroke-width':1.5}});
+
+  // Unit labels — clean, minimal
+  map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
+    layout:{
+      'text-field':['get','name'],
+      'text-font':['Noto Sans Regular'],
+      'text-size':10,'text-anchor':'center',
+    },
+    paint:{'text-color':'#5a5550','text-halo-color':'#fff','text-halo-width':1}});
+
+  // Shaft text
+  map.addLayer({id:'shaft-text',type:'symbol',source:'shafts',
+    layout:{
+      'text-field':['match',['get','type'],'elevator','⊡','stairs','≡','↗'],
+      'text-font':['Noto Sans Regular'],'text-size':13,
+    },
+    paint:{'text-color':'#7a7570'}});
+
+  startAnim();
+  renderPills();
+  renderFloor(activeFloorIdx);
+});
+</script>
+</body>
+</html>
