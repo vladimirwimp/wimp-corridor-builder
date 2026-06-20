@@ -253,15 +253,20 @@ map.on('load',()=>{
   map.addSource('unit-labels',   {type:'geojson',data:emptyFC()});
   map.addSource('shafts',        {type:'geojson',data:emptyFC()});
 
-  // Corridors — light walkable fill with dark architectural wall borders
+  // Corridors fill first
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
     paint:{'fill-color':'#e4e0d8','fill-opacity':1}});
-  map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    paint:{'line-color':'#2a2825','line-width':2.5,'line-join':'miter'}});
 
-  // Units — white fill, then wall outline with door gap as LineString
+  // Unit fills on top of corridor fill
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
     paint:{'fill-color':'#ffffff','fill-opacity':1}});
+
+  // Corridor walls drawn AFTER unit fills so they're not covered
+  map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
+    layout:{'line-join':'miter'},
+    paint:{'line-color':'#2a2825','line-width':2.5}});
+
+  // Unit wall outlines with door gaps
   map.addLayer({id:'box-outline',type:'line',source:'unit-outlines',
     layout:{'line-cap':'square','line-join':'miter'},
     paint:{'line-color':'#2a2825','line-width':2.5}});
