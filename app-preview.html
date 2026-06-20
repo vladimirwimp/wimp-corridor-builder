@@ -330,16 +330,8 @@ function renderFloor(idx) {
   map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
   map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
 
-  const route=buildRoute(floor);
-  if (route.length>=2) {
-    map.getSource('route')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:route},properties:{}});
-    map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:route[0]},properties:{}});
-    map.getSource('end-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:route[route.length-1]},properties:{}});
-  }
-
-  steps=buildSteps(route,floor);
+  steps=[];
   stepIndex=0;
-  updateStep();
 
   // Fit after sources settle
   const bounds=getBounds(floor);
