@@ -253,11 +253,11 @@ map.on('load',()=>{
   map.addSource('unit-labels',   {type:'geojson',data:emptyFC()});
   map.addSource('shafts',        {type:'geojson',data:emptyFC()});
 
-  // Corridors — clearly distinct warm grey
+  // Corridors — light walkable fill with dark architectural wall borders
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
-    paint:{'fill-color':'#ccc8c0','fill-opacity':1}});
+    paint:{'fill-color':'#e4e0d8','fill-opacity':1}});
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    paint:{'line-color':'#9e9990','line-width':1,'line-join':'round'}});
+    paint:{'line-color':'#2a2825','line-width':2.5,'line-join':'miter'}});
 
   // Units — white fill, then wall outline with door gap as LineString
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
