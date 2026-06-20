@@ -205,7 +205,7 @@ function renderFloor(idx) {
   map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
   map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
   const bounds=getBounds(floor);
-  if (bounds) setTimeout(()=>map.fitBounds(bounds,{padding:{top:40,bottom:40,left:30,right:30},duration:500}),300);
+  if (bounds) setTimeout(()=>map.fitBounds(bounds,{padding:20,duration:500,maxZoom:20}),300);
 }
 
 map.on('load',()=>{
@@ -223,17 +223,17 @@ map.on('load',()=>{
   map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
   map.addSource('shafts',     {type:'geojson',data:emptyFC()});
 
-  // Corridors — open walkable space
+  // Corridors — clearly distinct warm grey
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
-    paint:{'fill-color':'#e8e4dd','fill-opacity':1}});
+    paint:{'fill-color':'#ccc8c0','fill-opacity':1}});
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    paint:{'line-color':'#b0aba3','line-width':1.5,'line-join':'round'}});
+    paint:{'line-color':'#9e9990','line-width':1,'line-join':'round'}});
 
-  // Units — white rooms, dark wall lines
+  // Units — white rooms, thick dark wall lines
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
     paint:{'fill-color':'#ffffff','fill-opacity':1}});
   map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
-    paint:{'line-color':'#3a3835','line-width':2,'line-join':'round'}});
+    paint:{'line-color':'#2a2825','line-width':2.5,'line-join':'round'}});
 
   // Unit number labels
   map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
