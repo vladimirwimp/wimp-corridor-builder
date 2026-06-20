@@ -1105,24 +1105,8 @@ map.on('load', () => {
     const node = getNode(feat.properties.id);
     if (!node) return;
 
-    // Clicking/dragging a stop node: select its parent unit and start stop drag
-    if (node.type === 'stop') {
-      e.preventDefault();
-      e.originalEvent?.stopPropagation();
-      const floor = activeFloor();
-      const parentUnit = floor.nodes.find(n => n.connections?.includes(node.id) && n.boxParams);
-      if (!parentUnit) return;
-      selectedNodeId = parentUnit.id;
-      saveUndoSnapshot();
-      draggingStopNodeId = parentUnit.id;
-      map.dragPan.disable();
-      map.getCanvas().style.cursor = 'grabbing';
-      refreshAll();
-      return;
-    }
-
-    // Allow dragging junctions AND unit/amenity/shaft nodes
-    const draggable = node.type === 'junction' || node.box;
+    // Allow dragging junctions, stop nodes, AND unit/amenity/shaft nodes
+    const draggable = node.type === 'junction' || node.type === 'stop' || node.box;
     if (!draggable) return;
     dragPendingNodeId = node.id;
     dragStartPixel = [e.originalEvent.clientX, e.originalEvent.clientY];
@@ -1145,6 +1129,46 @@ map.on('load', () => {
     if (!draggingNodeId) return;
     const node = getNode(draggingNodeId);
     if (!node) return;
+
+    // Stop node: snap to nearest corridor centerline and update parent unit
+    if (node.type === 'stop') {
+      const floor = activeFloor();
+      const lng = e.lngLat.lng, lat = e.lngLat.lat;
+      let bestPx = lng, bestPy = lat, bestDist = Infinity, bestCor = null;
+      for (const cor of (floor.corridors || [])) {
+        const [cx, cy] = closestOnSegWithT(lng, lat, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
+        const d = dist2(lng, lat, cx, cy);
+        if (d < bestDist) { bestDist = d; bestPx = cx; bestPy = cy; bestCor = cor; }
+      }
+      node.coordinates = [round4(bestPx), round4(bestPy)];
+      if (bestCor) {
+        const parentUnit = floor.nodes.find(n => n.connections?.includes(node.id) && n.boxParams);
+        if (parentUnit) {
+          const dxc = bestCor.end[0] - bestCor.start[0], dyc = bestCor.end[1] - bestCor.start[1];
+          const lenC = Math.sqrt(dxc*dxc + dyc*dyc) || 1;
+          const newUx = dxc/lenC, newUy = dyc/lenC;
+          const perpX = -newUy, perpY = newUx;
+          const newSide = ((parentUnit.coordinates[0] - bestPx)*perpX + (parentUnit.coordinates[1] - bestPy)*perpY) >= 0 ? 1 : -1;
+          const hw = bestCor.width / 2;
+          parentUnit.boxParams.stopX = round4(bestPx);
+          parentUnit.boxParams.stopY = round4(bestPy);
+          parentUnit.boxParams.corridorId = bestCor.id;
+          parentUnit.boxParams.ux = round4(newUx);
+          parentUnit.boxParams.uy = round4(newUy);
+          parentUnit.boxParams.side = newSide;
+          parentUnit.boxParams.corridorHalfWidth = hw;
+          parentUnit.box = computeUnitBox(bestPx, bestPy, newUx, newUy, newSide, parentUnit.boxDepth, parentUnit.boxWidth, hw, parentUnit.boxShape || 'rectangle');
+          parentUnit.coordinates = [
+            round4(bestPx + perpX * newSide * (hw + parentUnit.boxDepth / 2)),
+            round4(bestPy + perpY * newSide * (hw + parentUnit.boxDepth / 2)),
+          ];
+          selectedNodeId = parentUnit.id;
+        }
+      }
+      refreshAll();
+      return;
+    }
+
     const prevX = node.coordinates[0], prevY = node.coordinates[1];
     const newX = round4(e.lngLat.lng), newY = round4(e.lngLat.lat);
     const dx = newX - prevX, dy = newY - prevY;
