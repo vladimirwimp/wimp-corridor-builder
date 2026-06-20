@@ -13,36 +13,28 @@
       background: #1a1a2e;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
     }
-
     #outer {
       display: flex; align-items: center; justify-content: center;
       height: 100%; padding: 20px;
     }
-
-    /* Phone shell */
     #shell {
       display: flex; flex-direction: column;
       width: 390px; height: min(844px, calc(100vh - 40px));
       background: #f5f2ed;
-      border-radius: 44px;
-      overflow: hidden;
+      border-radius: 44px; overflow: hidden;
       box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px rgba(0,0,0,0.6);
-      position: relative;
     }
 
     /* Status bar */
     #status-bar {
-      background: #2c2c2e;
-      padding: 14px 28px 4px;
+      background: #2c2c2e; padding: 14px 28px 4px;
       display: flex; justify-content: space-between; align-items: center;
       flex-shrink: 0;
     }
     .sb-time { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
     .sb-icons { display: flex; gap: 5px; align-items: center; }
-    .sb-icon { width: 16px; height: 10px; background: #fff; border-radius: 2px; opacity: 0.8; }
     .sb-battery {
-      width: 24px; height: 12px; border: 1.5px solid rgba(255,255,255,0.7); border-radius: 3px;
-      position: relative;
+      width: 24px; height: 12px; border: 1.5px solid rgba(255,255,255,0.7); border-radius: 3px; position: relative;
     }
     .sb-battery::after {
       content: ''; position: absolute; right: -5px; top: 3px;
@@ -50,94 +42,37 @@
     }
     .sb-battery-fill { position: absolute; inset: 2px; right: 5px; background: #fff; border-radius: 1px; }
 
-    /* Top nav bar */
+    /* Header */
     #nav-header {
-      background: #2c2c2e;
-      padding: 8px 12px 12px;
-      display: flex; align-items: center; gap: 6px;
-      flex-shrink: 0;
+      background: #2c2c2e; padding: 8px 12px 12px;
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
     .nav-chip {
       padding: 7px 14px; border-radius: 20px;
       font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
       border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.75);
-      background: rgba(255,255,255,0.06); cursor: pointer;
-      text-transform: uppercase; transition: all 0.15s; white-space: nowrap;
+      background: rgba(255,255,255,0.06); cursor: pointer; text-transform: uppercase;
     }
-    .nav-chip:hover { background: rgba(255,255,255,0.12); }
     .nav-chip.danger { color: #ff6b6b; border-color: rgba(255,107,107,0.4); }
-    .nav-chip.active { background: #2979FF; color: #fff; border-color: #2979FF; }
     #floor-pills { display: flex; gap: 6px; margin-left: auto; }
     .floor-pill {
       padding: 6px 14px; border-radius: 20px;
       font-size: 11px; font-weight: 700;
       border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.6);
-      background: transparent; cursor: pointer; transition: all 0.15s;
+      background: transparent; cursor: pointer;
     }
     .floor-pill.active { background: #2979FF; color: #fff; border-color: #2979FF; }
 
     /* Map */
     #map-container { flex: 1; position: relative; overflow: hidden; }
     #map { width: 100%; height: 100%; }
-
-    /* Property watermark */
     #watermark {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       pointer-events: none; z-index: 1;
       font-size: 52px; font-weight: 900; letter-spacing: -2px;
-      color: rgba(0,0,0,0.045); text-transform: uppercase; user-select: none;
+      color: rgba(0,0,0,0.04); text-transform: uppercase; user-select: none;
       transform: rotate(-20deg);
     }
-
-    /* Locate button */
-    #locate-btn {
-      position: absolute; bottom: 16px; right: 14px; z-index: 5;
-      width: 44px; height: 44px; border-radius: 12px;
-      background: #fff; border: none; cursor: pointer;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
-
-    /* Footer */
-    #footer {
-      background: #2c2c2e;
-      padding: 14px 20px 28px;
-      flex-shrink: 0;
-    }
-    #step-meta {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    #step-counter {
-      font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
-      color: #2979FF; text-transform: uppercase;
-    }
-    #step-dist { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.45); }
-    #progress-bar {
-      height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px;
-      margin-bottom: 12px; overflow: hidden;
-    }
-    #progress-fill { height: 100%; background: #2979FF; border-radius: 2px; transition: width 0.3s; }
-    #step-instruction {
-      font-size: 16px; color: rgba(255,255,255,0.6);
-      margin-bottom: 14px; line-height: 1.45; min-height: 44px;
-      display: flex; align-items: center;
-    }
-    #step-instruction strong { color: #fff; font-weight: 700; }
-    #nav-btns { display: flex; gap: 10px; }
-    .nav-btn {
-      flex: 1; padding: 15px; border-radius: 14px;
-      border: none; font-size: 15px; font-weight: 700; cursor: pointer;
-      letter-spacing: -0.1px; transition: all 0.1s;
-    }
-    .nav-btn.back {
-      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
-      border: 1.5px solid rgba(255,255,255,0.12);
-    }
-    .nav-btn.next { background: #2979FF; color: #fff; box-shadow: 0 4px 16px rgba(41,121,255,0.4); }
-    .nav-btn:active { transform: scale(0.97); }
-
     #no-data {
       display: none; flex-direction: column; align-items: center;
       justify-content: center; height: 100%;
@@ -147,19 +82,17 @@
   </style>
 </head>
 <body>
-<div id="outer">
-<div id="shell">
+<div id="outer"><div id="shell">
 
   <div id="status-bar">
     <span class="sb-time" id="clock">10:22</span>
     <div class="sb-icons">
-      <div class="sb-icon"></div>
       <div class="sb-battery"><div class="sb-battery-fill"></div></div>
     </div>
   </div>
 
   <div id="nav-header">
-    <button class="nav-chip" onclick="alert('Search coming soon')">New Search</button>
+    <button class="nav-chip">New Search</button>
     <button class="nav-chip danger">Lost</button>
     <div id="floor-pills"></div>
     <button class="nav-chip" style="margin-left:4px">EN ▾</button>
@@ -167,29 +100,14 @@
 
   <div id="map-container">
     <div id="map"></div>
-    <div id="watermark" id="watermark-text"></div>
-    <button id="locate-btn" title="Re-center">⊕</button>
+    <div id="watermark"></div>
     <div id="no-data">
       <div style="font-size:52px">🗺️</div>
       <p>No floor plan data found.<br>Build a map in the <strong>Corridor Builder</strong><br>then click <strong>▶ App Preview</strong>.</p>
     </div>
   </div>
 
-  <div id="footer">
-    <div id="step-meta">
-      <span id="step-counter">Step 1 of 1</span>
-      <span id="step-dist"></span>
-    </div>
-    <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
-    <div id="step-instruction">Navigating your floor plan</div>
-    <div id="nav-btns">
-      <button class="nav-btn back" onclick="prevStep()">« Back</button>
-      <button class="nav-btn next" onclick="nextStep()">Next »</button>
-    </div>
-  </div>
-
-</div>
-</div>
+</div></div>
 
 <script>
 function updateClock() {
@@ -207,8 +125,6 @@ try {
 } catch(e){}
 
 let activeFloorIdx = 0;
-let stepIndex = 0;
-let steps = [];
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -250,13 +166,13 @@ function getBounds(floor) {
 function buildFloorGeoJSON(floor) {
   const corFeatures=(floor.corridors||[]).map(c=>{
     const p=corridorPolygon(c);
-    return p.length?{type:'Feature',geometry:{type:'Polygon',coordinates:[p]},properties:{id:c.id}}:null;
+    return p.length?{type:'Feature',geometry:{type:'Polygon',coordinates:[p]},properties:{}}:null;
   }).filter(Boolean);
 
   const boxFeatures=[], labelFeatures=[], shaftFeatures=[];
   for (const n of (floor.nodes||[])) {
     if ((n.type==='unit'||n.type==='amenity')&&n.box?.length) {
-      boxFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:[n.box]},properties:{id:n.id,name:n.name||''}});
+      boxFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:[n.box]},properties:{name:n.name||''}});
       if (n.name) labelFeatures.push({type:'Feature',geometry:{type:'Point',coordinates:n.coordinates},properties:{name:n.name}});
     }
     if (['elevator','stairs','escalator'].includes(n.type)) {
@@ -265,80 +181,6 @@ function buildFloorGeoJSON(floor) {
   }
   return {corFeatures,boxFeatures,labelFeatures,shaftFeatures};
 }
-
-// Build a route through junctions sorted along corridors
-function buildRoute(floor) {
-  const junctions=(floor.nodes||[]).filter(n=>n.type==='junction');
-  if (junctions.length<2) return [];
-  // Sort by x then y to get a sensible traversal order
-  const sorted=[...junctions].sort((a,b)=>a.coordinates[0]-b.coordinates[0]||a.coordinates[1]-b.coordinates[1]);
-  const step=Math.max(1,Math.floor(sorted.length/8));
-  const pts=[];
-  for (let i=0;i<sorted.length;i+=step) pts.push(sorted[i].coordinates);
-  if (pts[pts.length-1]!==sorted[sorted.length-1].coordinates) pts.push(sorted[sorted.length-1].coordinates);
-  return pts;
-}
-
-function haversineM(a,b) {
-  const R=6371000, toR=Math.PI/180;
-  const lat1=a[1]*toR, lat2=b[1]*toR;
-  const dLat=(b[1]-a[1])*toR, dLon=(b[0]-a[0])*toR;
-  const s=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
-}
-
-function routeLength(pts) {
-  let d=0; for (let i=1;i<pts.length;i++) d+=haversineM(pts[i-1],pts[i]); return d;
-}
-
-function buildSteps(route, floor) {
-  if (route.length<2) return [{text:'Navigating your floor plan',pt:route[0]||[0,0],dist:0}];
-  const units=(floor.nodes||[]).filter(n=>n.type==='unit'&&n.name);
-  const out=[];
-  const total=routeLength(route);
-  let traveled=0;
-  for (let i=0;i<route.length-1;i++) {
-    const [ax,ay]=route[i],[bx,by]=route[i+1];
-    const dx=bx-ax,dy=by-ay;
-    const dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'up':'down');
-    const seg=haversineM(route[i],route[i+1]);
-    const remaining=Math.round(total-traveled);
-    traveled+=seg;
-    let near=null,nearD=Infinity;
-    const mx=(ax+bx)/2,my=(ay+by)/2;
-    for (const u of units){const d=Math.hypot(u.coordinates[0]-mx,u.coordinates[1]-my);if(d<nearD){nearD=d;near=u;}}
-    const nearStr=near&&nearD<3?`, past <strong>${near.name}</strong>`:'';
-    const label=i===0?`Exit and join the hallway, heading <strong>${dir}</strong>${nearStr}`:`Continue <strong>${dir}</strong>${nearStr}`;
-    out.push({text:label,pt:route[i],dist:remaining});
-  }
-  out.push({text:`You have <strong>arrived</strong> 🎉`,pt:route[route.length-1],dist:0});
-  return out;
-}
-
-function updateStep() {
-  const s=steps[stepIndex];
-  if (!s) return;
-  document.getElementById('step-instruction').innerHTML=s.text;
-  document.getElementById('step-counter').textContent=`Step ${stepIndex+1} of ${steps.length}`;
-  document.getElementById('step-dist').textContent=s.dist>0?`${s.dist} m`:'';
-  document.getElementById('progress-fill').style.width=`${Math.round((stepIndex/(steps.length-1))*100)}%`;
-
-  // Move user dot to current step point
-  map.getSource('user-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:s.pt},properties:{}});
-
-  // Show turn arrow for next step
-  if (stepIndex<steps.length-1) {
-    const next=steps[stepIndex+1];
-    map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:next.pt},properties:{}});
-  } else {
-    map.getSource('turn-pt')?.setData(emptyFC());
-  }
-
-  map.easeTo({center:s.pt,duration:400});
-}
-
-function nextStep(){if(stepIndex<steps.length-1){stepIndex++;updateStep();}}
-function prevStep(){if(stepIndex>0){stepIndex--;updateStep();}}
 
 function renderPills() {
   if (!previewData) return;
@@ -357,34 +199,14 @@ function renderFloor(idx) {
   if (!previewData) return;
   const floor=previewData.floors[idx];
   if (!floor) return;
-
   const {corFeatures,boxFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
   map.getSource('corridors')?.setData({type:'FeatureCollection',features:corFeatures});
   map.getSource('unit-boxes')?.setData({type:'FeatureCollection',features:boxFeatures});
   map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
   map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
-
-  const route=buildRoute(floor);
-  if (route.length>=2) {
-    map.getSource('route')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:route},properties:{}});
-  } else {
-    map.getSource('route')?.setData(emptyFC());
-  }
-
-  steps=buildSteps(route,floor);
-  stepIndex=0;
-  updateStep();
-
   const bounds=getBounds(floor);
   if (bounds) setTimeout(()=>map.fitBounds(bounds,{padding:{top:40,bottom:40,left:30,right:30},duration:500}),300);
 }
-
-document.getElementById('locate-btn').addEventListener('click',()=>{
-  const floor=previewData?.floors[activeFloorIdx];
-  if (!floor) return;
-  const bounds=getBounds(floor);
-  if (bounds) map.fitBounds(bounds,{padding:{top:40,bottom:40,left:30,right:30},duration:400});
-});
 
 map.on('load',()=>{
   if (!previewData) {
@@ -393,7 +215,6 @@ map.on('load',()=>{
     return;
   }
 
-  // Property watermark
   const name=previewData.propertyName||'';
   if (name) document.getElementById('watermark').textContent=name;
 
@@ -401,54 +222,33 @@ map.on('load',()=>{
   map.addSource('unit-boxes', {type:'geojson',data:emptyFC()});
   map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
   map.addSource('shafts',     {type:'geojson',data:emptyFC()});
-  map.addSource('route',      {type:'geojson',data:emptyFC()});
-  map.addSource('user-pt',    {type:'geojson',data:emptyFC()});
-  map.addSource('turn-pt',    {type:'geojson',data:emptyFC()});
 
-  // Corridors
+  // Corridors — open walkable space
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
     paint:{'fill-color':'#e8e4dd','fill-opacity':1}});
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
     paint:{'line-color':'#b0aba3','line-width':1.5,'line-join':'round'}});
 
-  // Units
+  // Units — white rooms, dark wall lines
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
-    paint:{'fill-color':'#f5f2ed','fill-opacity':1}});
+    paint:{'fill-color':'#ffffff','fill-opacity':1}});
   map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
-    paint:{'line-color':'#4a4745','line-width':2,'line-join':'round'}});
+    paint:{'line-color':'#3a3835','line-width':2,'line-join':'round'}});
 
-  // Route — dashed blue line
-  map.addLayer({id:'route-line',type:'line',source:'route',
-    layout:{'line-cap':'round','line-join':'round'},
-    paint:{'line-color':'#2979FF','line-width':2.5,'line-dasharray':[2,3],'line-opacity':0.7}});
+  // Unit number labels
+  map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
+    layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],
+      'text-size':10,'text-anchor':'center','text-allow-overlap':false},
+    paint:{'text-color':'#5a5550','text-halo-color':'#ffffff','text-halo-width':1.5}});
 
-  // Turn indicator (dark circle with arrow via symbol)
-  map.addLayer({id:'turn-ring',type:'circle',source:'turn-pt',
-    paint:{'circle-radius':18,'circle-color':'#1a1a1a',
-      'circle-stroke-color':'rgba(255,255,255,0.2)','circle-stroke-width':1.5}});
-
-  // User position (blue filled circle)
-  map.addLayer({id:'user-ring',type:'circle',source:'user-pt',
-    paint:{'circle-radius':14,'circle-color':'#2979FF',
-      'circle-stroke-color':'rgba(255,255,255,0.9)','circle-stroke-width':3,
-      'circle-opacity':0.95}});
-  map.addLayer({id:'user-dot',type:'circle',source:'user-pt',
-    paint:{'circle-radius':5,'circle-color':'#fff'}});
-
-  // Shaft icons
+  // Shafts (elevators/stairs)
   map.addLayer({id:'shaft-bg',type:'circle',source:'shafts',
-    paint:{'circle-radius':13,'circle-color':'#fff',
+    paint:{'circle-radius':12,'circle-color':'#fff',
       'circle-stroke-color':'#b0aba3','circle-stroke-width':1.5}});
   map.addLayer({id:'shaft-text',type:'symbol',source:'shafts',
     layout:{'text-field':['match',['get','type'],'elevator','⊡','stairs','≡','↗'],
       'text-font':['Noto Sans Regular'],'text-size':13},
     paint:{'text-color':'#7a7570'}});
-
-  // Unit labels
-  map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
-    layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],
-      'text-size':9,'text-anchor':'center','text-allow-overlap':false},
-    paint:{'text-color':'#5a5550','text-halo-color':'#f5f2ed','text-halo-width':1}});
 
   renderPills();
   renderFloor(activeFloorIdx);
