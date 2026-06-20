@@ -198,7 +198,7 @@ const map = new maplibregl.Map({
   container: 'map',
   style: {
     version: 8, sources: {},
-    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f5f2ee' } }],
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f0ede8' } }],
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   },
   center: [0,0], zoom: 4,
@@ -385,17 +385,22 @@ map.on('load',()=>{
   map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
   map.addSource('shafts',     {type:'geojson',data:emptyFC()});
 
-  // Corridor fills — medium warm grey (clearly visible against ivory bg)
+  // Corridors — light fill so they read as open walkable space
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
-    paint:{'fill-color':'#c8c3ba','fill-opacity':1}});
+    paint:{'fill-color':'#dedad4','fill-opacity':1}});
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    paint:{'line-color':'#b0aba2','line-width':1}});
+    paint:{'line-color':'#b5b0a8','line-width':1.5,'line-join':'round'}});
 
-  // Unit boxes — white with warm hairline border
+  // Unit boxes — white rooms with dark architectural wall lines
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
     paint:{'fill-color':'#ffffff','fill-opacity':1}});
   map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
-    paint:{'line-color':'#d0cbc4','line-width':0.75}});
+    paint:{'line-color':'#5a5754','line-width':1.5,'line-join':'round'}});
+
+  // Unit labels
+  map.addLayer({id:'unit-labels',type:'symbol',source:'unit-labels',
+    layout:{'text-field':['get','name'],'text-size':9,'text-font':['Open Sans Regular'],'text-anchor':'center','text-allow-overlap':false},
+    paint:{'text-color':'#4a4745','text-halo-color':'#fff','text-halo-width':1}});
 
 
   // Shaft icons
