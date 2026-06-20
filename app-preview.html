@@ -14,119 +14,130 @@
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
     }
 
-    /* ── Centering wrapper ── */
     #outer {
       display: flex; align-items: center; justify-content: center;
       height: 100%; padding: 20px;
     }
 
-    /* ── Phone shell ── */
+    /* Phone shell */
     #shell {
       display: flex; flex-direction: column;
       width: 390px; height: min(844px, calc(100vh - 40px));
-      background: #faf8f5;
+      background: #f5f2ed;
       border-radius: 44px;
       overflow: hidden;
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.08),
-        0 30px 80px rgba(0,0,0,0.6),
-        inset 0 0 0 1px rgba(255,255,255,0.06);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px rgba(0,0,0,0.6);
       position: relative;
     }
 
-    /* ── Status bar ── */
+    /* Status bar */
     #status-bar {
-      background: #faf8f5;
+      background: #2c2c2e;
       padding: 14px 28px 4px;
       display: flex; justify-content: space-between; align-items: center;
       flex-shrink: 0;
     }
-    .sb-time { font-size: 15px; font-weight: 700; color: #1a1a1a; letter-spacing: -0.3px; }
+    .sb-time { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
     .sb-icons { display: flex; gap: 5px; align-items: center; }
-    .sb-icon { width: 16px; height: 10px; background: #1a1a1a; border-radius: 2px; opacity: 0.8; }
-    .sb-icon.wifi { clip-path: polygon(50% 100%, 0 30%, 100% 30%); background: transparent;
-      border-bottom: 2px solid #1a1a1a; width: 14px; }
+    .sb-icon { width: 16px; height: 10px; background: #fff; border-radius: 2px; opacity: 0.8; }
     .sb-battery {
-      width: 24px; height: 12px; border: 1.5px solid #1a1a1a; border-radius: 3px;
-      position: relative; opacity: 0.8;
+      width: 24px; height: 12px; border: 1.5px solid rgba(255,255,255,0.7); border-radius: 3px;
+      position: relative;
     }
     .sb-battery::after {
       content: ''; position: absolute; right: -5px; top: 3px;
-      width: 3px; height: 5px; background: #1a1a1a; border-radius: 0 2px 2px 0;
+      width: 3px; height: 5px; background: rgba(255,255,255,0.7); border-radius: 0 2px 2px 0;
     }
-    .sb-battery-fill {
-      position: absolute; inset: 2px; right: 5px; background: #1a1a1a; border-radius: 1px;
-    }
+    .sb-battery-fill { position: absolute; inset: 2px; right: 5px; background: #fff; border-radius: 1px; }
 
-    /* ── Nav header ── */
+    /* Top nav bar */
     #nav-header {
-      background: #faf8f5;
-      padding: 8px 20px 12px;
-      display: flex; align-items: center; gap: 8px;
+      background: #2c2c2e;
+      padding: 8px 12px 12px;
+      display: flex; align-items: center; gap: 6px;
       flex-shrink: 0;
-      border-bottom: 1px solid rgba(0,0,0,0.06);
     }
-    #nav-header h2 {
-      font-size: 15px; font-weight: 600; color: #1a1a1a;
-      letter-spacing: -0.2px; flex: 1;
+    .nav-chip {
+      padding: 7px 14px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.75);
+      background: rgba(255,255,255,0.06); cursor: pointer;
+      text-transform: uppercase; transition: all 0.15s; white-space: nowrap;
     }
-    #floor-pills { display: flex; gap: 6px; }
+    .nav-chip:hover { background: rgba(255,255,255,0.12); }
+    .nav-chip.danger { color: #ff6b6b; border-color: rgba(255,107,107,0.4); }
+    .nav-chip.active { background: #2979FF; color: #fff; border-color: #2979FF; }
+    #floor-pills { display: flex; gap: 6px; margin-left: auto; }
     .floor-pill {
-      padding: 5px 14px; border-radius: 20px;
-      font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
-      border: 1.5px solid #e0ddd8; color: #888; cursor: pointer;
-      background: transparent; transition: all 0.15s;
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+      border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.6);
+      background: transparent; cursor: pointer; transition: all 0.15s;
     }
-    .floor-pill.active {
-      background: #2979FF; color: #fff; border-color: #2979FF;
-      box-shadow: 0 2px 8px rgba(41,121,255,0.35);
-    }
+    .floor-pill.active { background: #2979FF; color: #fff; border-color: #2979FF; }
 
-    /* ── Map ── */
+    /* Map */
     #map-container { flex: 1; position: relative; overflow: hidden; }
     #map { width: 100%; height: 100%; }
 
-    /* Overlay buttons */
-    #lost-btn {
-      position: absolute; top: 14px; right: 14px; z-index: 5;
-      background: #fff; border: none; border-radius: 14px;
-      padding: 8px 16px; font-size: 13px; font-weight: 600; color: #e63946;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.1); cursor: pointer;
-      display: flex; align-items: center; gap: 6px;
-      letter-spacing: 0.01em;
+    /* Property watermark */
+    #watermark {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 1;
+      font-size: 52px; font-weight: 900; letter-spacing: -2px;
+      color: rgba(0,0,0,0.045); text-transform: uppercase; user-select: none;
+      transform: rotate(-20deg);
     }
 
-    /* ── Footer ── */
+    /* Locate button */
+    #locate-btn {
+      position: absolute; bottom: 16px; right: 14px; z-index: 5;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: #fff; border: none; cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    /* Footer */
     #footer {
-      background: #faf8f5;
-      padding: 16px 20px 32px;
-      border-top: 1px solid rgba(0,0,0,0.06);
+      background: #2c2c2e;
+      padding: 14px 20px 28px;
       flex-shrink: 0;
     }
-    #step-instruction {
-      font-size: 17px; color: #666; text-align: center;
-      margin-bottom: 16px; line-height: 1.45;
-      min-height: 48px; display: flex; align-items: center; justify-content: center;
-      letter-spacing: -0.1px;
+    #step-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
     }
-    #step-instruction strong { color: #1a1a1a; font-weight: 700; }
+    #step-counter {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      color: #2979FF; text-transform: uppercase;
+    }
+    #step-dist { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.45); }
+    #progress-bar {
+      height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px;
+      margin-bottom: 12px; overflow: hidden;
+    }
+    #progress-fill { height: 100%; background: #2979FF; border-radius: 2px; transition: width 0.3s; }
+    #step-instruction {
+      font-size: 16px; color: rgba(255,255,255,0.6);
+      margin-bottom: 14px; line-height: 1.45; min-height: 44px;
+      display: flex; align-items: center;
+    }
+    #step-instruction strong { color: #fff; font-weight: 700; }
     #nav-btns { display: flex; gap: 10px; }
     .nav-btn {
-      flex: 1; padding: 16px; border-radius: 16px;
-      border: none; font-size: 16px; font-weight: 600; cursor: pointer;
-      letter-spacing: -0.2px; transition: all 0.1s;
+      flex: 1; padding: 15px; border-radius: 14px;
+      border: none; font-size: 15px; font-weight: 700; cursor: pointer;
+      letter-spacing: -0.1px; transition: all 0.1s;
     }
     .nav-btn.back {
-      background: #fff; border: 1.5px solid #e0ddd8; color: #555;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+      border: 1.5px solid rgba(255,255,255,0.12);
     }
-    .nav-btn.next {
-      background: #2979FF; color: #fff;
-      box-shadow: 0 4px 16px rgba(41,121,255,0.4);
-    }
-    .nav-btn:active { transform: scale(0.98); }
+    .nav-btn.next { background: #2979FF; color: #fff; box-shadow: 0 4px 16px rgba(41,121,255,0.4); }
+    .nav-btn:active { transform: scale(0.97); }
 
-    /* ── No data ── */
     #no-data {
       display: none; flex-direction: column; align-items: center;
       justify-content: center; height: 100%;
@@ -142,19 +153,22 @@
   <div id="status-bar">
     <span class="sb-time" id="clock">10:22</span>
     <div class="sb-icons">
-      <div class="sb-icon wifi"></div>
+      <div class="sb-icon"></div>
       <div class="sb-battery"><div class="sb-battery-fill"></div></div>
     </div>
   </div>
 
   <div id="nav-header">
-    <h2 id="prop-title">Floor Plan</h2>
+    <button class="nav-chip" onclick="alert('Search coming soon')">New Search</button>
+    <button class="nav-chip danger">Lost</button>
     <div id="floor-pills"></div>
+    <button class="nav-chip" style="margin-left:4px">EN ▾</button>
   </div>
 
   <div id="map-container">
     <div id="map"></div>
-    <button id="lost-btn">📍 Lost</button>
+    <div id="watermark" id="watermark-text"></div>
+    <button id="locate-btn" title="Re-center">⊕</button>
     <div id="no-data">
       <div style="font-size:52px">🗺️</div>
       <p>No floor plan data found.<br>Build a map in the <strong>Corridor Builder</strong><br>then click <strong>▶ App Preview</strong>.</p>
@@ -162,6 +176,11 @@
   </div>
 
   <div id="footer">
+    <div id="step-meta">
+      <span id="step-counter">Step 1 of 1</span>
+      <span id="step-dist"></span>
+    </div>
+    <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
     <div id="step-instruction">Navigating your floor plan</div>
     <div id="nav-btns">
       <button class="nav-btn back" onclick="prevStep()">« Back</button>
@@ -173,7 +192,6 @@
 </div>
 
 <script>
-// ── Clock ──
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent =
@@ -182,7 +200,6 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
-// ── Load data ──
 let previewData = null;
 try {
   const r = localStorage.getItem('wimp_preview') || localStorage.getItem('wimp_cb_autosave');
@@ -193,12 +210,11 @@ let activeFloorIdx = 0;
 let stepIndex = 0;
 let steps = [];
 
-// ── MapLibre ──
 const map = new maplibregl.Map({
   container: 'map',
   style: {
     version: 8, sources: {},
-    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f0ede8' } }],
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f5f2ed' } }],
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   },
   center: [0,0], zoom: 4,
@@ -206,12 +222,11 @@ const map = new maplibregl.Map({
   dragRotate: false, attributionControl: false,
 });
 
-// ── Helpers ──
 function emptyFC() { return { type:'FeatureCollection', features:[] }; }
 
 function corridorPolygon(c) {
-  const dx = c.end[0]-c.start[0], dy = c.end[1]-c.start[1];
-  const len = Math.sqrt(dx*dx+dy*dy);
+  const dx=c.end[0]-c.start[0], dy=c.end[1]-c.start[1];
+  const len=Math.sqrt(dx*dx+dy*dy);
   if (len===0) return [];
   const ux=dx/len, uy=dy/len;
   const lx=-uy*c.width/2, ly=ux*c.width/2;
@@ -220,141 +235,111 @@ function corridorPolygon(c) {
 }
 
 function getBounds(floor) {
-  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
-  const push = (x,y) => { minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y); };
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  const push=(x,y)=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);};
   for (const c of (floor.corridors||[])) { push(...c.start); push(...c.end); }
   for (const n of (floor.nodes||[])) {
     if (n.coordinates) push(...n.coordinates);
     if (n.box) for (const pt of n.box) push(...pt);
   }
   if (!isFinite(minX)) return null;
-  const padX = (maxX-minX)*0.15 + 1.5;
-  const padY = (maxY-minY)*0.15 + 1.5;
-  return [[minX-padX, minY-padY],[maxX+padX, maxY+padY]];
+  const padX=(maxX-minX)*0.2+1.5, padY=(maxY-minY)*0.2+1.5;
+  return [[minX-padX,minY-padY],[maxX+padX,maxY+padY]];
 }
 
 function buildFloorGeoJSON(floor) {
-  const corFeatures = (floor.corridors||[]).map(c => {
-    const p = corridorPolygon(c);
-    return p.length ? { type:'Feature', geometry:{type:'Polygon',coordinates:[p]}, properties:{id:c.id} } : null;
+  const corFeatures=(floor.corridors||[]).map(c=>{
+    const p=corridorPolygon(c);
+    return p.length?{type:'Feature',geometry:{type:'Polygon',coordinates:[p]},properties:{id:c.id}}:null;
   }).filter(Boolean);
 
   const boxFeatures=[], labelFeatures=[], shaftFeatures=[];
   for (const n of (floor.nodes||[])) {
-    if ((n.type==='unit'||n.type==='amenity') && n.box?.length) {
-      boxFeatures.push({ type:'Feature', geometry:{type:'Polygon',coordinates:[n.box]}, properties:{id:n.id,name:n.name||''} });
-      labelFeatures.push({ type:'Feature', geometry:{type:'Point',coordinates:n.coordinates}, properties:{name:n.name||''} });
+    if ((n.type==='unit'||n.type==='amenity')&&n.box?.length) {
+      boxFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:[n.box]},properties:{id:n.id,name:n.name||''}});
+      if (n.name) labelFeatures.push({type:'Feature',geometry:{type:'Point',coordinates:n.coordinates},properties:{name:n.name}});
     }
     if (['elevator','stairs','escalator'].includes(n.type)) {
-      shaftFeatures.push({ type:'Feature', geometry:{type:'Point',coordinates:n.coordinates}, properties:{type:n.type} });
+      shaftFeatures.push({type:'Feature',geometry:{type:'Point',coordinates:n.coordinates},properties:{type:n.type}});
     }
   }
-  return { corFeatures, boxFeatures, labelFeatures, shaftFeatures };
+  return {corFeatures,boxFeatures,labelFeatures,shaftFeatures};
 }
 
-// ── Animated route ──
-const CYCLE_MS=3000, NUM_DASHES=6, DASH_W=0.12, BLUR=0.002;
-const DIM='rgba(41,121,255,0.15)', BRIGHT='#2979FF';
-let animFrame=null;
-
-function buildGrad(t) {
-  const stops=[{p:0,c:DIM,b:false},{p:1,c:DIM,b:false}];
-  for (let d=0;d<NUM_DASHES;d++) {
-    const s=(t+d/NUM_DASHES)%1, e=(s+DASH_W)%1;
-    if (s<e) {
-      stops.push({p:Math.max(0,s-BLUR),c:DIM,b:false},{p:s,c:BRIGHT,b:true},{p:e,c:BRIGHT,b:true},{p:Math.min(1,e+BLUR),c:DIM,b:false});
-    } else {
-      stops.push({p:Math.max(0,s-BLUR),c:DIM,b:false},{p:s,c:BRIGHT,b:true},{p:1,c:BRIGHT,b:true},{p:0,c:BRIGHT,b:true},{p:e,c:BRIGHT,b:true},{p:Math.min(1,e+BLUR),c:DIM,b:false});
-    }
-  }
-  stops.sort((a,b)=>a.p-b.p||(b.b?1:0)-(a.b?1:0));
-  const d=[]; let last=-1;
-  for (const s of stops) { if (s.p-last>0.0001) { d.push(s); last=s.p; } }
-  const e=['interpolate',['linear'],['line-progress']];
-  for (const {p,c} of d) e.push(p,c);
-  return e;
-}
-
-function startAnim() {
-  if (animFrame) cancelAnimationFrame(animFrame);
-  let t0=null;
-  (function tick(ts) {
-    if (!t0) t0=ts;
-    const t=((ts-t0)%CYCLE_MS)/CYCLE_MS;
-    if (map.getLayer('route-line')) map.setPaintProperty('route-line','line-gradient',buildGrad(t));
-    animFrame=requestAnimationFrame(tick);
-  })();
-}
-
-// ── Demo route through junctions ──
+// Build a route through junctions sorted along corridors
 function buildRoute(floor) {
-  const junctions = (floor.nodes||[])
-    .filter(n=>n.type==='junction')
-    .sort((a,b)=>a.coordinates[0]-b.coordinates[0]);
+  const junctions=(floor.nodes||[]).filter(n=>n.type==='junction');
   if (junctions.length<2) return [];
-  const step = Math.max(1, Math.floor(junctions.length/10));
+  // Sort by x then y to get a sensible traversal order
+  const sorted=[...junctions].sort((a,b)=>a.coordinates[0]-b.coordinates[0]||a.coordinates[1]-b.coordinates[1]);
+  const step=Math.max(1,Math.floor(sorted.length/8));
   const pts=[];
-  for (let i=0;i<junctions.length;i+=step) pts.push(junctions[i].coordinates);
-  if (pts.length<2) return junctions.slice(0,2).map(j=>j.coordinates);
+  for (let i=0;i<sorted.length;i+=step) pts.push(sorted[i].coordinates);
+  if (pts[pts.length-1]!==sorted[sorted.length-1].coordinates) pts.push(sorted[sorted.length-1].coordinates);
   return pts;
 }
 
+function haversineM(a,b) {
+  const R=6371000, toR=Math.PI/180;
+  const lat1=a[1]*toR, lat2=b[1]*toR;
+  const dLat=(b[1]-a[1])*toR, dLon=(b[0]-a[0])*toR;
+  const s=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+}
+
+function routeLength(pts) {
+  let d=0; for (let i=1;i<pts.length;i++) d+=haversineM(pts[i-1],pts[i]); return d;
+}
+
 function buildSteps(route, floor) {
-  if (route.length<2) return [{text:'Navigating your floor plan',pt:route[0]||[0,0]}];
+  if (route.length<2) return [{text:'Navigating your floor plan',pt:route[0]||[0,0],dist:0}];
   const units=(floor.nodes||[]).filter(n=>n.type==='unit'&&n.name);
-  const steps=[];
+  const out=[];
+  const total=routeLength(route);
+  let traveled=0;
   for (let i=0;i<route.length-1;i++) {
     const [ax,ay]=route[i],[bx,by]=route[i+1];
     const dx=bx-ax,dy=by-ay;
     const dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'up':'down');
-    const mx=(ax+bx)/2,my=(ay+by)/2;
+    const seg=haversineM(route[i],route[i+1]);
+    const remaining=Math.round(total-traveled);
+    traveled+=seg;
     let near=null,nearD=Infinity;
-    for (const u of units) {
-      const d=Math.hypot(u.coordinates[0]-mx,u.coordinates[1]-my);
-      if (d<nearD){nearD=d;near=u;}
-    }
-    const nearStr=near&&nearD<3?`, near <strong>${near.name}</strong>`:'';
-    steps.push({text:i===0?`Head <strong>${dir}</strong>${nearStr}`:`Continue <strong>${dir}</strong>${nearStr}`,pt:route[i]});
+    const mx=(ax+bx)/2,my=(ay+by)/2;
+    for (const u of units){const d=Math.hypot(u.coordinates[0]-mx,u.coordinates[1]-my);if(d<nearD){nearD=d;near=u;}}
+    const nearStr=near&&nearD<3?`, past <strong>${near.name}</strong>`:'';
+    const label=i===0?`Exit and join the hallway, heading <strong>${dir}</strong>${nearStr}`:`Continue <strong>${dir}</strong>${nearStr}`;
+    out.push({text:label,pt:route[i],dist:remaining});
   }
-  steps.push({text:`You have <strong>arrived</strong> 🎉`,pt:route[route.length-1]});
-  return steps;
-}
-
-// ── Render floor ──
-function renderFloor(idx) {
-  if (!previewData) return;
-  const floor=previewData.floors[idx];
-  if (!floor) return;
-
-  const {corFeatures,boxFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
-
-  map.getSource('corridors')?.setData({type:'FeatureCollection',features:corFeatures});
-  map.getSource('unit-boxes')?.setData({type:'FeatureCollection',features:boxFeatures});
-  map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
-  map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
-
-  steps=[];
-  stepIndex=0;
-
-  // Fit after sources settle
-  const bounds=getBounds(floor);
-  if (bounds) {
-    setTimeout(()=>map.fitBounds(bounds,{padding:{top:50,bottom:50,left:30,right:30},duration:500}),300);
-  }
+  out.push({text:`You have <strong>arrived</strong> 🎉`,pt:route[route.length-1],dist:0});
+  return out;
 }
 
 function updateStep() {
   const s=steps[stepIndex];
   if (!s) return;
   document.getElementById('step-instruction').innerHTML=s.text;
-  map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:s.pt},properties:{}});
-  map.easeTo({center:s.pt,duration:500});
+  document.getElementById('step-counter').textContent=`Step ${stepIndex+1} of ${steps.length}`;
+  document.getElementById('step-dist').textContent=s.dist>0?`${s.dist} m`:'';
+  document.getElementById('progress-fill').style.width=`${Math.round((stepIndex/(steps.length-1))*100)}%`;
+
+  // Move user dot to current step point
+  map.getSource('user-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:s.pt},properties:{}});
+
+  // Show turn arrow for next step
+  if (stepIndex<steps.length-1) {
+    const next=steps[stepIndex+1];
+    map.getSource('turn-pt')?.setData({type:'Feature',geometry:{type:'Point',coordinates:next.pt},properties:{}});
+  } else {
+    map.getSource('turn-pt')?.setData(emptyFC());
+  }
+
+  map.easeTo({center:s.pt,duration:400});
 }
 
 function nextStep(){if(stepIndex<steps.length-1){stepIndex++;updateStep();}}
 function prevStep(){if(stepIndex>0){stepIndex--;updateStep();}}
 
-// ── Floor pills ──
 function renderPills() {
   if (!previewData) return;
   const c=document.getElementById('floor-pills');
@@ -362,13 +347,45 @@ function renderPills() {
   previewData.floors.forEach((f,i)=>{
     const btn=document.createElement('button');
     btn.className='floor-pill'+(i===activeFloorIdx?' active':'');
-    btn.textContent=f.name||`Floor ${f.number}`;
+    btn.textContent=f.name||`Floor ${i+1}`;
     btn.onclick=()=>{activeFloorIdx=i;renderPills();renderFloor(i);};
     c.appendChild(btn);
   });
 }
 
-// ── Map load ──
+function renderFloor(idx) {
+  if (!previewData) return;
+  const floor=previewData.floors[idx];
+  if (!floor) return;
+
+  const {corFeatures,boxFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
+  map.getSource('corridors')?.setData({type:'FeatureCollection',features:corFeatures});
+  map.getSource('unit-boxes')?.setData({type:'FeatureCollection',features:boxFeatures});
+  map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
+  map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
+
+  const route=buildRoute(floor);
+  if (route.length>=2) {
+    map.getSource('route')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:route},properties:{}});
+  } else {
+    map.getSource('route')?.setData(emptyFC());
+  }
+
+  steps=buildSteps(route,floor);
+  stepIndex=0;
+  updateStep();
+
+  const bounds=getBounds(floor);
+  if (bounds) setTimeout(()=>map.fitBounds(bounds,{padding:{top:40,bottom:40,left:30,right:30},duration:500}),300);
+}
+
+document.getElementById('locate-btn').addEventListener('click',()=>{
+  const floor=previewData?.floors[activeFloorIdx];
+  if (!floor) return;
+  const bounds=getBounds(floor);
+  if (bounds) map.fitBounds(bounds,{padding:{top:40,bottom:40,left:30,right:30},duration:400});
+});
+
 map.on('load',()=>{
   if (!previewData) {
     document.getElementById('no-data').style.display='flex';
@@ -376,54 +393,62 @@ map.on('load',()=>{
     return;
   }
 
-  document.getElementById('prop-title').textContent=
-    (previewData.propertyName||'Preview')+' · Floor Plan';
+  // Property watermark
+  const name=previewData.propertyName||'';
+  if (name) document.getElementById('watermark').textContent=name;
 
-  // Sources
   map.addSource('corridors',  {type:'geojson',data:emptyFC()});
   map.addSource('unit-boxes', {type:'geojson',data:emptyFC()});
   map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
   map.addSource('shafts',     {type:'geojson',data:emptyFC()});
+  map.addSource('route',      {type:'geojson',data:emptyFC()});
+  map.addSource('user-pt',    {type:'geojson',data:emptyFC()});
+  map.addSource('turn-pt',    {type:'geojson',data:emptyFC()});
 
-  // Corridors — light fill so they read as open walkable space
+  // Corridors
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
-    paint:{'fill-color':'#dedad4','fill-opacity':1}});
+    paint:{'fill-color':'#e8e4dd','fill-opacity':1}});
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    paint:{'line-color':'#b5b0a8','line-width':1.5,'line-join':'round'}});
+    paint:{'line-color':'#b0aba3','line-width':1.5,'line-join':'round'}});
 
-  // Unit boxes — white rooms with dark architectural wall lines
+  // Units
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
-    paint:{'fill-color':'#ffffff','fill-opacity':1}});
+    paint:{'fill-color':'#f5f2ed','fill-opacity':1}});
   map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
-    paint:{'line-color':'#5a5754','line-width':1.5,'line-join':'round'}});
+    paint:{'line-color':'#4a4745','line-width':2,'line-join':'round'}});
 
-  // Unit labels
-  map.addLayer({id:'unit-labels',type:'symbol',source:'unit-labels',
-    layout:{'text-field':['get','name'],'text-size':9,'text-font':['Open Sans Regular'],'text-anchor':'center','text-allow-overlap':false},
-    paint:{'text-color':'#4a4745','text-halo-color':'#fff','text-halo-width':1}});
+  // Route — dashed blue line
+  map.addLayer({id:'route-line',type:'line',source:'route',
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':'#2979FF','line-width':2.5,'line-dasharray':[2,3],'line-opacity':0.7}});
 
+  // Turn indicator (dark circle with arrow via symbol)
+  map.addLayer({id:'turn-ring',type:'circle',source:'turn-pt',
+    paint:{'circle-radius':18,'circle-color':'#1a1a1a',
+      'circle-stroke-color':'rgba(255,255,255,0.2)','circle-stroke-width':1.5}});
+
+  // User position (blue filled circle)
+  map.addLayer({id:'user-ring',type:'circle',source:'user-pt',
+    paint:{'circle-radius':14,'circle-color':'#2979FF',
+      'circle-stroke-color':'rgba(255,255,255,0.9)','circle-stroke-width':3,
+      'circle-opacity':0.95}});
+  map.addLayer({id:'user-dot',type:'circle',source:'user-pt',
+    paint:{'circle-radius':5,'circle-color':'#fff'}});
 
   // Shaft icons
   map.addLayer({id:'shaft-bg',type:'circle',source:'shafts',
     paint:{'circle-radius':13,'circle-color':'#fff',
-      'circle-stroke-color':'#c0bbb4','circle-stroke-width':1.5}});
-
-  // Unit labels — clean, minimal
-  map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
-    layout:{
-      'text-field':['get','name'],
-      'text-font':['Noto Sans Regular'],
-      'text-size':10,'text-anchor':'center',
-    },
-    paint:{'text-color':'#5a5550','text-halo-color':'#fff','text-halo-width':1}});
-
-  // Shaft text
+      'circle-stroke-color':'#b0aba3','circle-stroke-width':1.5}});
   map.addLayer({id:'shaft-text',type:'symbol',source:'shafts',
-    layout:{
-      'text-field':['match',['get','type'],'elevator','⊡','stairs','≡','↗'],
-      'text-font':['Noto Sans Regular'],'text-size':13,
-    },
+    layout:{'text-field':['match',['get','type'],'elevator','⊡','stairs','≡','↗'],
+      'text-font':['Noto Sans Regular'],'text-size':13},
     paint:{'text-color':'#7a7570'}});
+
+  // Unit labels
+  map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
+    layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],
+      'text-size':9,'text-anchor':'center','text-allow-overlap':false},
+    paint:{'text-color':'#5a5550','text-halo-color':'#f5f2ed','text-halo-width':1}});
 
   renderPills();
   renderFloor(activeFloorIdx);
