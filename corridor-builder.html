@@ -1218,23 +1218,43 @@ map.on('load', () => {
       return;
     }
 
-    // ── Stop handle drag (slide entrance along corridor wall) ──
+    // ── Stop handle drag (slide entrance; can reassign to any corridor) ──
     if (draggingStopNodeId) {
       const node = getNode(draggingStopNodeId);
       if (node?.boxParams) {
         const floor = activeFloor();
-        // Prefer the unit's own corridor, fall back to nearest
         const corridors = floor.corridors || [];
-        let bestPx = lng, bestPy = lat, bestDist = Infinity;
+        let bestPx = lng, bestPy = lat, bestDist = Infinity, bestCor = null;
         for (const cor of corridors) {
-          if (node.boxParams.corridorId && cor.id !== node.boxParams.corridorId) continue;
           const [cx, cy] = closestOnSegWithT(lng, lat, cor.start[0], cor.start[1], cor.end[0], cor.end[1]);
           const d = dist2(lng, lat, cx, cy);
-          if (d < bestDist) { bestDist = d; bestPx = cx; bestPy = cy; }
+          if (d < bestDist) { bestDist = d; bestPx = cx; bestPy = cy; bestCor = cor; }
         }
-        // Store centerline position (computeUnitBox adds corridorHalfWidth internally)
-        node.boxParams.stopX = round4(bestPx);
-        node.boxParams.stopY = round4(bestPy);
+        if (bestCor) {
+          // Recompute corridor direction and which side the unit box is on
+          const dxc = bestCor.end[0] - bestCor.start[0];
+          const dyc = bestCor.end[1] - bestCor.start[1];
+          const lenC = Math.sqrt(dxc * dxc + dyc * dyc) || 1;
+          const newUx = dxc / lenC, newUy = dyc / lenC;
+          // Keep the unit box center to determine side relative to new corridor
+          const unitCx = node.coordinates[0], unitCy = node.coordinates[1];
+          const perpX = -newUy, perpY = newUx;
+          const newSide = ((unitCx - bestPx) * perpX + (unitCy - bestPy) * perpY) >= 0 ? 1 : -1;
+          node.boxParams.stopX = round4(bestPx);
+          node.boxParams.stopY = round4(bestPy);
+          node.boxParams.corridorId = bestCor.id;
+          node.boxParams.ux = round4(newUx);
+          node.boxParams.uy = round4(newUy);
+          node.boxParams.side = newSide;
+          node.boxParams.corridorHalfWidth = bestCor.width / 2;
+          // Recompute box from new stop position
+          node.box = computeUnitBox(bestPx, bestPy, newUx, newUy, newSide, node.boxDepth, node.boxWidth, bestCor.width / 2, node.boxShape || 'rectangle');
+          // Update unit center coordinates
+          node.coordinates = [
+            round4(bestPx + (-newUy) * newSide * (bestCor.width / 2 + node.boxDepth / 2)),
+            round4(bestPy +   newUx  * newSide * (bestCor.width / 2 + node.boxDepth / 2)),
+          ];
+        }
         // Update the stop node on the graph too
         const stopNode = floor.nodes.find(s => s.type === 'stop' && node.connections.includes(s.id));
         if (stopNode) stopNode.coordinates = [round4(bestPx), round4(bestPy)];
