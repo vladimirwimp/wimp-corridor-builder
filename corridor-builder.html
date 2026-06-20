@@ -1232,7 +1232,7 @@ map.on('load', () => {
           const d = dist2(lng, lat, cx, cy);
           if (d < bestDist) { bestDist = d; bestPx = cx; bestPy = cy; }
         }
-        // Move only the stop — box stays fixed, door gap follows via outlineFromBox(doorT)
+        // Store centerline position (computeUnitBox adds corridorHalfWidth internally)
         node.boxParams.stopX = round4(bestPx);
         node.boxParams.stopY = round4(bestPy);
         // Update the stop node on the graph too
@@ -1387,9 +1387,13 @@ function refreshAll() {
     const selNode = selectedNodeId ? floor.nodes.find(n => n.id === selectedNodeId) : null;
     const stopFeats = [];
     if (selNode && BOX_TYPES.has(selNode.type) && selNode.boxParams) {
+      const { stopX, stopY, ux, uy, side, corridorHalfWidth } = selNode.boxParams;
+      // Render handle on the near wall (corridor edge facing the unit), not the centerline
+      const hx = round4(stopX + (-uy) * side * corridorHalfWidth);
+      const hy = round4(stopY +   ux  * side * corridorHalfWidth);
       stopFeats.push({
         type: 'Feature',
-        geometry: { type: 'Point', coordinates: [selNode.boxParams.stopX, selNode.boxParams.stopY] },
+        geometry: { type: 'Point', coordinates: [hx, hy] },
         properties: {},
       });
     }
