@@ -130,7 +130,7 @@ const map = new maplibregl.Map({
   container: 'map',
   style: {
     version: 8, sources: {},
-    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f5f2ed' } }],
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#3d3a36' } }],
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   },
   center: [0,0], zoom: 4,
@@ -253,23 +253,18 @@ map.on('load',()=>{
   map.addSource('unit-labels',   {type:'geojson',data:emptyFC()});
   map.addSource('shafts',        {type:'geojson',data:emptyFC()});
 
-  // Corridors fill first
+  // Corridor floor — light fill, dark background = walls
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
-    paint:{'fill-color':'#e4e0d8','fill-opacity':1}});
+    paint:{'fill-color':'#ede9e2','fill-opacity':1}});
 
-  // Unit fills on top of corridor fill
+  // Unit rooms — white, slightly distinct from corridor
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
-    paint:{'fill-color':'#ffffff','fill-opacity':1}});
+    paint:{'fill-color':'#f8f6f2','fill-opacity':1}});
 
-  // Corridor walls drawn AFTER unit fills so they're not covered
-  map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
-    layout:{'line-join':'miter'},
-    paint:{'line-color':'#2a2825','line-width':2.5}});
-
-  // Unit wall outlines with door gaps
+  // Door gap only — thin line showing the opening, no full wall border
   map.addLayer({id:'box-outline',type:'line',source:'unit-outlines',
-    layout:{'line-cap':'square','line-join':'miter'},
-    paint:{'line-color':'#2a2825','line-width':2.5}});
+    layout:{'line-cap':'butt','line-join':'miter'},
+    paint:{'line-color':'#3d3a36','line-width':1.5}});
 
   // Unit number labels
   map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
