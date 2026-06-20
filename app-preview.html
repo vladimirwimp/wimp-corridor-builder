@@ -184,7 +184,10 @@ setInterval(updateClock, 10000);
 
 // ── Load data ──
 let previewData = null;
-try { const r = localStorage.getItem('wimp_preview'); if (r) previewData = JSON.parse(r); } catch(e){}
+try {
+  const r = localStorage.getItem('wimp_preview') || localStorage.getItem('wimp_cb_autosave');
+  if (r) previewData = JSON.parse(r);
+} catch(e){}
 
 let activeFloorIdx = 0;
 let stepIndex = 0;
