@@ -140,6 +140,29 @@ const map = new maplibregl.Map({
 
 function emptyFC() { return { type:'FeatureCollection', features:[] }; }
 
+const DOOR_RATIO = 0.38;
+function outlineFromBox(box, shape, doorT=0.5) {
+  const pts = box.slice(0, box.length-1);
+  if (pts.length < 3) return pts;
+  if (shape === 'triangle') return [pts[0], pts[2]||pts[1], pts[1]];
+  const [p0,p1,p2,p3] = pts;
+  const half = DOOR_RATIO / 2;
+  const t1 = Math.max(0, doorT - half), t2 = Math.min(1, doorT + half);
+  const doorL = [p0[0]+t1*(p1[0]-p0[0]), p0[1]+t1*(p1[1]-p0[1])];
+  const doorR = [p0[0]+t2*(p1[0]-p0[0]), p0[1]+t2*(p1[1]-p0[1])];
+  return [doorL, p0, p3, p2, p1, doorR];
+}
+
+function getDoorT(n) {
+  if (!n.boxParams || !n.box) return 0.5;
+  const p0=n.box[0], p1=n.box[1];
+  const wx=p1[0]-p0[0], wy=p1[1]-p0[1];
+  const wallLen2 = wx*wx + wy*wy;
+  if (wallLen2 === 0) return 0.5;
+  const sx=n.boxParams.stopX-p0[0], sy=n.boxParams.stopY-p0[1];
+  return Math.max(0.05, Math.min(0.95, (sx*wx+sy*wy)/wallLen2));
+}
+
 function corridorPolygon(c) {
   const dx=c.end[0]-c.start[0], dy=c.end[1]-c.start[1];
   const len=Math.sqrt(dx*dx+dy*dy);
@@ -169,17 +192,22 @@ function buildFloorGeoJSON(floor) {
     return p.length?{type:'Feature',geometry:{type:'Polygon',coordinates:[p]},properties:{}}:null;
   }).filter(Boolean);
 
-  const boxFeatures=[], labelFeatures=[], shaftFeatures=[];
+  const boxFeatures=[], outlineFeatures=[], labelFeatures=[], shaftFeatures=[];
   for (const n of (floor.nodes||[])) {
     if ((n.type==='unit'||n.type==='amenity')&&n.box?.length) {
+      // Fill polygon (no door gap — just the room area)
       boxFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:[n.box]},properties:{name:n.name||''}});
+      // Wall outline with door gap as a LineString
+      const doorT = getDoorT(n);
+      const outline = outlineFromBox(n.box, n.boxShape||'rectangle', doorT);
+      outlineFeatures.push({type:'Feature',geometry:{type:'LineString',coordinates:outline},properties:{}});
       if (n.name) labelFeatures.push({type:'Feature',geometry:{type:'Point',coordinates:n.coordinates},properties:{name:n.name}});
     }
     if (['elevator','stairs','escalator'].includes(n.type)) {
       shaftFeatures.push({type:'Feature',geometry:{type:'Point',coordinates:n.coordinates},properties:{type:n.type}});
     }
   }
-  return {corFeatures,boxFeatures,labelFeatures,shaftFeatures};
+  return {corFeatures,boxFeatures,outlineFeatures,labelFeatures,shaftFeatures};
 }
 
 function renderPills() {
@@ -199,9 +227,10 @@ function renderFloor(idx) {
   if (!previewData) return;
   const floor=previewData.floors[idx];
   if (!floor) return;
-  const {corFeatures,boxFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
+  const {corFeatures,boxFeatures,outlineFeatures,labelFeatures,shaftFeatures}=buildFloorGeoJSON(floor);
   map.getSource('corridors')?.setData({type:'FeatureCollection',features:corFeatures});
   map.getSource('unit-boxes')?.setData({type:'FeatureCollection',features:boxFeatures});
+  map.getSource('unit-outlines')?.setData({type:'FeatureCollection',features:outlineFeatures});
   map.getSource('unit-labels')?.setData({type:'FeatureCollection',features:labelFeatures});
   map.getSource('shafts')?.setData({type:'FeatureCollection',features:shaftFeatures});
   const bounds=getBounds(floor);
@@ -218,10 +247,11 @@ map.on('load',()=>{
   const name=previewData.propertyName||'';
   if (name) document.getElementById('watermark').textContent=name;
 
-  map.addSource('corridors',  {type:'geojson',data:emptyFC()});
-  map.addSource('unit-boxes', {type:'geojson',data:emptyFC()});
-  map.addSource('unit-labels',{type:'geojson',data:emptyFC()});
-  map.addSource('shafts',     {type:'geojson',data:emptyFC()});
+  map.addSource('corridors',     {type:'geojson',data:emptyFC()});
+  map.addSource('unit-boxes',    {type:'geojson',data:emptyFC()});
+  map.addSource('unit-outlines', {type:'geojson',data:emptyFC()});
+  map.addSource('unit-labels',   {type:'geojson',data:emptyFC()});
+  map.addSource('shafts',        {type:'geojson',data:emptyFC()});
 
   // Corridors — clearly distinct warm grey
   map.addLayer({id:'cor-fill',type:'fill',source:'corridors',
@@ -229,11 +259,12 @@ map.on('load',()=>{
   map.addLayer({id:'cor-stroke',type:'line',source:'corridors',
     paint:{'line-color':'#9e9990','line-width':1,'line-join':'round'}});
 
-  // Units — white rooms, thick dark wall lines
+  // Units — white fill, then wall outline with door gap as LineString
   map.addLayer({id:'box-fill',type:'fill',source:'unit-boxes',
     paint:{'fill-color':'#ffffff','fill-opacity':1}});
-  map.addLayer({id:'box-stroke',type:'line',source:'unit-boxes',
-    paint:{'line-color':'#2a2825','line-width':2.5,'line-join':'round'}});
+  map.addLayer({id:'box-outline',type:'line',source:'unit-outlines',
+    layout:{'line-cap':'square','line-join':'miter'},
+    paint:{'line-color':'#2a2825','line-width':2.5}});
 
   // Unit number labels
   map.addLayer({id:'unit-text',type:'symbol',source:'unit-labels',
