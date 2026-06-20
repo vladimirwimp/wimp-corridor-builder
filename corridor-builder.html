@@ -1104,6 +1104,23 @@ map.on('load', () => {
     if (!feat) return;
     const node = getNode(feat.properties.id);
     if (!node) return;
+
+    // Clicking/dragging a stop node: select its parent unit and start stop drag
+    if (node.type === 'stop') {
+      e.preventDefault();
+      e.originalEvent?.stopPropagation();
+      const floor = activeFloor();
+      const parentUnit = floor.nodes.find(n => n.connections?.includes(node.id) && n.boxParams);
+      if (!parentUnit) return;
+      selectedNodeId = parentUnit.id;
+      saveUndoSnapshot();
+      draggingStopNodeId = parentUnit.id;
+      map.dragPan.disable();
+      map.getCanvas().style.cursor = 'grabbing';
+      refreshAll();
+      return;
+    }
+
     // Allow dragging junctions AND unit/amenity/shaft nodes
     const draggable = node.type === 'junction' || node.box;
     if (!draggable) return;
